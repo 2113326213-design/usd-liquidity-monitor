@@ -76,6 +76,13 @@ class Settings(BaseSettings):
     # Switch to QQQ or IWM if your book skews tech / small-cap.
     hedge_ticker: str = "SPY"
 
+    # ─── Market stress (Layer-2 fast pulse) ──────────────
+    # Composite stress z-score thresholds for the yfinance-based
+    # ETF + VIX basket. Positive z = stress-aligned movement.
+    market_stress_medium_z: float = 2.0
+    market_stress_high_z: float = 3.0
+    market_stress_critical_z: float = 4.0
+
     # ─── Operational ───────────────────────────────────
     # If True, run a one-off initial poll at startup for every collector
     initial_poll_on_start: bool = True

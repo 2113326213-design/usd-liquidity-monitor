@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import pytest
 
+from ..collectors.market_stress import MarketStressCollector
 from ..collectors.reserves import ReservesCollector
 from ..collectors.rrp import RRPCollector
 from ..collectors.srp import SRPCollector
@@ -129,3 +130,31 @@ async def test_reserves_fetch_returns_wresbal(store, alerter):
         f"Reserves value looks wrong: {payload['reserves_bn']}"
     )
     assert "observation_date" in payload
+
+
+# ───────────────────────── Market Stress (yfinance) ─────────────────────────
+
+@pytest.mark.smoke
+@pytest.mark.asyncio
+async def test_market_stress_fetch_returns_composite(store, alerter):
+    """Layer-2 yfinance basket — SPY / VIX / TLT / IEF / LQD / HYG.
+
+    Catches yfinance breakage (Yahoo rate limits, ticker delisting, schema
+    change). If even one ticker of the 6 returns data the test passes;
+    we only fail if the whole basket fails.
+    """
+    payload = await MarketStressCollector(store, alerter).fetch()
+    assert payload is not None, (
+        "All tickers failed — yfinance may be rate-limited or broken"
+    )
+    assert "composite_stress_z" in payload
+    assert "tickers" in payload and len(payload["tickers"]) >= 1
+    # Composite z should be a finite float, typically |z| < 10 (|z| > 5
+    # would mean genuine crisis, but the sanity bound catches NaN / inf).
+    z = payload["composite_stress_z"]
+    assert isinstance(z, float)
+    assert -10.0 < z < 10.0, f"composite_stress_z looks wrong: {z}"
+    # Each returned ticker must have the four required fields.
+    for sym, d in payload["tickers"].items():
+        for field in ("price", "ret_1h_pct", "z_1h", "stress_z"):
+            assert field in d, f"{sym} missing {field}"

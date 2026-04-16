@@ -96,6 +96,19 @@ def build_scheduler(collectors: dict) -> AsyncIOScheduler:
         id="reserves_fri", replace_existing=True,
     )
 
+    # ── Market stress (Layer-2 fast pulse via yfinance) ─────────────
+    # Every 15 min during US market hours (9:30-16:00 ET, mon-fri).
+    # yfinance gives us ~15-min delayed data — cheaper than Polygon, adequate
+    # for the "stress pulse confirms structural alert" use case.
+    if "market_stress" in collectors:
+        sched.add_job(
+            collectors["market_stress"].poll,
+            CronTrigger(
+                day_of_week="mon-fri", hour="9-16", minute="*/15", timezone=ET
+            ),
+            id="market_stress_15min", replace_existing=True,
+        )
+
     # ── Proxy buffer flush ──────────────────────────────────────────
     # Flush Layer-3 minute-bar buffer to disk every 2 minutes during market hours
     store = collectors["tga"].store

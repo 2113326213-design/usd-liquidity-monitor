@@ -7,6 +7,7 @@ loguru>=0.7.2
 pydantic-settings>=2.2.0
 pytz>=2024.1
 websockets>=12.0
+yfinance>=0.2.40
 # dashboard
 streamlit>=1.33.0
 streamlit-autorefresh>=1.0.1
