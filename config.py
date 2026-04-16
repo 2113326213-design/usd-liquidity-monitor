@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
+    # Bark (iOS push). device_key is your per-device key from the Bark app.
+    # server_url defaults to the official public server; set to a self-hosted
+    # URL (e.g. https://bark.example.com) if you run your own.
+    bark_device_key: str = ""
+    bark_server_url: str = "https://api.day.app"
+
     # ─── Paths ─────────────────────────────────────────
     data_dir: Path = Path("./data")
 

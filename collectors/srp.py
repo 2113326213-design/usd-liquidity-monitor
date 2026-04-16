@@ -2,14 +2,19 @@
 SRP (Standing Repo Facility) collector.
 
 Source: NY Fed Markets API
-Endpoint: https://markets.newyorkfed.org/api/rp/repo/propositions/search.json
+Endpoint: https://markets.newyorkfed.org/api/rp/repo/all/results/lastTwoWeeks.json
 
 As of 2025-12-11, SRP operates twice daily (AM + PM) with no aggregate limit.
 ANY non-zero acceptance is a hard signal that we've left the Ample regime.
+
+Note: the older `repo/propositions/search.json` endpoint with startDate/endDate
+params now returns HTTP 400 on NY Fed's side. The `results/lastTwoWeeks.json`
+endpoint returns the same JSON shape ({"repo": {"operations": [...]}}) and
+always covers the last 14 days, so no date params are needed.
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import httpx
 from loguru import logger
@@ -20,15 +25,11 @@ from .base import Collector
 
 class SRPCollector(Collector):
     name = "srp"
-    URL = "https://markets.newyorkfed.org/api/rp/repo/propositions/search.json"
+    URL = "https://markets.newyorkfed.org/api/rp/repo/all/results/lastTwoWeeks.json"
 
     async def fetch(self) -> dict | None:
-        start = (datetime.utcnow() - timedelta(days=14)).strftime("%Y-%m-%d")
-        end = datetime.utcnow().strftime("%Y-%m-%d")
-        params = {"startDate": start, "endDate": end}
-
         async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.get(self.URL, params=params)
+            r = await c.get(self.URL)
             r.raise_for_status()
 
         data = r.json()

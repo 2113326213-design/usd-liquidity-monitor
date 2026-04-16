@@ -1,0 +1,4 @@
+# Dev-only dependencies. Install with:
+#     pip install -r requirements.txt -r requirements-dev.txt
+pytest>=9.0
+pytest-asyncio>=1.3

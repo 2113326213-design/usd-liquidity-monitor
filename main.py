@@ -15,6 +15,8 @@ import sys
 
 from loguru import logger
 
+from .alerts.bark import BarkAlerter
+from .alerts.multi import MultiAlerter
 from .alerts.telegram import TelegramAlerter
 from .collectors.reserves import ReservesCollector
 from .collectors.rrp import RRPCollector
@@ -49,7 +51,7 @@ async def main() -> None:
 
     # ── Core services ─────────────────────────────────────────────
     store = ParquetStore(settings.data_dir)
-    alerter = TelegramAlerter()
+    alerter = MultiAlerter([TelegramAlerter(), BarkAlerter()])
 
     # ── Derived state ─────────────────────────────────────────────
     nl_calc = NetLiquidityCalculator(store, alerter)

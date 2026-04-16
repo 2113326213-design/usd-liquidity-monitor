@@ -1,9 +1,0 @@
-{
-  "qt_pace_bn_per_month": 60.0,
-  "rrp_absorption_ratio": 0.78,
-  "lclor_bn": 3000.0,
-  "tga_target_rate_bn_per_day": 2.0,
-  "currency_drift_bn_per_month": 5.0,
-  "rrp_floor_bn": 50.0,
-  "notes": "Illustrative constants for runway_ode.py — replace with econometric estimates."
-}

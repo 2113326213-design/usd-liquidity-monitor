@@ -17,7 +17,7 @@ import plotly.graph_objects as go
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 
-DATA_DIR = Path("./data/raw")
+DATA_DIR = (Path(__file__).parent.parent / "data" / "raw").resolve()
 
 
 st.set_page_config(
@@ -61,7 +61,7 @@ tga = _load("tga").sort_values("poll_ts") if not _load("tga").empty else _load("
 rrp = _load("rrp").sort_values("poll_ts") if not _load("rrp").empty else _load("rrp")
 srp = _load("srp").sort_values("poll_ts") if not _load("srp").empty else _load("srp")
 reserves = _load("reserves").sort_values("poll_ts") if not _load("reserves").empty else _load("reserves")
-nl = _load("net_liquidity").sort_values("poll_ts") if not _load("net_liquidity").empty else _load("net_liquidity")
+nl = _load("net_liquidity").sort_values("as_of") if not _load("net_liquidity").empty else _load("net_liquidity")
 
 # ═══════════════════════ Top row: KPI cards ═══════════════════════
 c1, c2, c3, c4, c5 = st.columns(5)
