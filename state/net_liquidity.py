@@ -76,7 +76,42 @@ class NetLiquidityCalculator:
         self.store.write_snapshot(self.NAME, payload, h)
         logger.info(f"[net_liquidity] {payload['as_of']} → {net:+.1f} bn")
 
+        await self._check_absolute_level(payload)
         await self._check_slope_reversal()
+
+    async def _check_absolute_level(self, payload: dict) -> None:
+        """Fire a playbook alert if net liquidity has crossed a tiered floor."""
+        from ..alerts.playbook import format_alert, suggest_action, tier_level
+
+        net = float(payload["net_liquidity_bn"])
+        level = tier_level(
+            net,
+            medium=settings.net_liq_medium_bn,
+            high=settings.net_liq_high_bn,
+            critical=settings.net_liq_critical_bn,
+            direction="below",
+        )
+        if level is None:
+            return
+        threshold = {
+            "MEDIUM": settings.net_liq_medium_bn,
+            "HIGH": settings.net_liq_high_bn,
+            "CRITICAL": settings.net_liq_critical_bn,
+        }[level]
+        msg = format_alert(
+            level=level,
+            title="Net Liquidity below structural floor",
+            metrics={
+                "Net Liquidity": f"${net:,.1f} bn",
+                f"{level} threshold": f"${threshold:,.0f} bn",
+                "Reserves": f"${float(payload['reserves_bn']):,.1f} bn",
+                "RRP": f"${float(payload['rrp_bn']):,.1f} bn",
+                "TGA": f"${float(payload['tga_bn']):,.1f} bn",
+                "As of": payload.get("as_of", "?"),
+            },
+            action=suggest_action(level, hedge_ticker=settings.hedge_ticker),
+        )
+        await self.alerter.send(level=level, msg=msg, payload=payload)
 
     async def _check_slope_reversal(self) -> None:
         df = self.store.read_all(self.NAME)
@@ -96,12 +131,22 @@ class NetLiquidityCalculator:
         cur_slope = float(slopes.iloc[-1])
 
         if prev_slope > 0 and cur_slope < settings.net_liquidity_slope_alert:
+            from ..alerts.playbook import format_alert, suggest_action
+
+            msg = format_alert(
+                level="HIGH",
+                title="Net Liquidity 7-day EWMA slope reversal",
+                metrics={
+                    "Prev slope": f"{prev_slope:+.1f} bn/day",
+                    "Current slope": f"{cur_slope:+.1f} bn/day",
+                    "Latest Net Liquidity": f"${float(series.iloc[-1]):,.1f} bn",
+                    "As of": str(df["as_of"].iloc[-1]),
+                },
+                action=suggest_action("HIGH", hedge_ticker=settings.hedge_ticker),
+            )
             await self.alerter.send(
                 level="HIGH",
-                msg=(
-                    f"Net Liquidity 7-day EWMA slope reversal: "
-                    f"{prev_slope:+.1f} → {cur_slope:+.1f} bn/day"
-                ),
+                msg=msg,
                 payload={
                     "prev_slope_bn_per_day": prev_slope,
                     "cur_slope_bn_per_day": cur_slope,

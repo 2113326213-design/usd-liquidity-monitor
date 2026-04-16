@@ -67,19 +67,38 @@ class TGACollector(Collector):
         }
 
     async def on_new_data(self, payload: dict) -> None:
+        from ..alerts.playbook import format_alert, suggest_action
+        from ..config import settings
+
+        tga_bn = float(payload["close_bal_bn"])
+
         prev = self.store.last_snapshot(self.name, offset=1)
         if prev is not None:
             try:
-                delta = payload["close_bal_bn"] - float(prev["close_bal_bn"])
-                from ..config import settings
+                delta = tga_bn - float(prev["close_bal_bn"])
                 if abs(delta) > settings.tga_daily_swing_bn:
-                    level = "HIGH" if delta > 0 else "MEDIUM"
-                    direction = "Treasury吸水 (liquidity drain)" if delta > 0 else "Treasury放水 (liquidity inject)"
-                    await self.alerter.send(
+                    # TGA rising = Treasury draining liquidity (HIGH).
+                    # TGA falling = Treasury spending / MEDIUM observational.
+                    if delta > 0:
+                        level = "HIGH"
+                        title = "TGA surge — Treasury draining reserves"
+                        action = suggest_action(level, hedge_ticker=settings.hedge_ticker)
+                    else:
+                        level = "MEDIUM"
+                        title = "TGA drop — Treasury releasing cash (liquidity positive)"
+                        action = None  # No hedge action on inflow — this is bullish.
+
+                    msg = format_alert(
                         level=level,
-                        msg=f"TGA Δ1d = {delta:+.1f} bn → {direction}. Now {payload['close_bal_bn']:.1f} bn.",
-                        payload=payload,
+                        title=title,
+                        metrics={
+                            "TGA": f"${tga_bn:,.1f} bn",
+                            "Δ1d": f"{delta:+.1f} bn",
+                            "Record date": payload.get("record_date", "?"),
+                        },
+                        action=action,
                     )
+                    await self.alerter.send(level=level, msg=msg, payload=payload)
             except Exception as e:
                 logger.debug(f"[tga] delta check failed: {e}")
 

@@ -44,6 +44,38 @@ class Settings(BaseSettings):
     proxy_z_threshold: float = 3.0
     proxy_window_minutes: int = 60
 
+    # ─── Tiered structural thresholds (for playbook) ───
+    # Fire ACTION playbook at MEDIUM / HIGH / CRITICAL levels.
+    #
+    # Bank reserves level — approaching Fed's "ample" floor.
+    # Historical context: Fed's own guidance around LCLoR (Lowest Comfortable
+    # Level of Reserves) puts concern zone roughly around $3T; 2019 repo crisis
+    # was preceded by reserves falling to ~$1.4T (pre-QE era floor was lower).
+    # For post-2022 regime, treat $3.2T/3.0T/2.8T as medium/high/critical.
+    reserves_medium_bn: float = 3200.0
+    reserves_high_bn: float = 3000.0
+    reserves_critical_bn: float = 2800.0
+
+    # ON RRP level — the "cushion" absorbing liquidity drains before
+    # reserves themselves start to fall. When RRP is exhausted, every TGA
+    # rebuild bn comes directly out of bank reserves.
+    rrp_medium_bn: float = 200.0
+    rrp_high_bn: float = 100.0
+    rrp_critical_bn: float = 50.0
+
+    # Net Liquidity — Reserves + RRP − TGA (billion USD).
+    # Post-QT regime baseline runs ~$2.3T (Reserves ~$3T + RRP near zero
+    # − TGA ~$0.7T). The pre-QT peak was ~$5.8T (2021). These thresholds
+    # are calibrated for the CURRENT regime, not historical. Revisit if
+    # Fed resumes QE (operating range shifts up ~$2T).
+    net_liq_medium_bn: float = 2400.0
+    net_liq_high_bn: float = 2200.0
+    net_liq_critical_bn: float = 2000.0
+
+    # Default hedge ticker used by alerts/playbook.py suggestions.
+    # Switch to QQQ or IWM if your book skews tech / small-cap.
+    hedge_ticker: str = "SPY"
+
     # ─── Operational ───────────────────────────────────
     # If True, run a one-off initial poll at startup for every collector
     initial_poll_on_start: bool = True

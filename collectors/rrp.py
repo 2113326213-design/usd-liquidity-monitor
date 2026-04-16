@@ -68,15 +68,46 @@ class RRPCollector(Collector):
         }
 
     async def on_new_data(self, payload: dict) -> None:
+        from ..alerts.playbook import format_alert, suggest_action, tier_level
+        from ..config import settings
+
+        rrp_bn = float(payload["total_accepted_bn"])
+
+        # Absolute-level tiered playbook: cushion-exhaustion alert.
+        level = tier_level(
+            rrp_bn,
+            medium=settings.rrp_medium_bn,
+            high=settings.rrp_high_bn,
+            critical=settings.rrp_critical_bn,
+            direction="below",
+        )
+        if level is not None:
+            threshold = {
+                "MEDIUM": settings.rrp_medium_bn,
+                "HIGH": settings.rrp_high_bn,
+                "CRITICAL": settings.rrp_critical_bn,
+            }[level]
+            msg = format_alert(
+                level=level,
+                title="ON RRP cushion running low — further drains hit reserves directly",
+                metrics={
+                    "ON RRP": f"${rrp_bn:,.1f} bn",
+                    f"{level} threshold": f"${threshold:,.0f} bn",
+                    "Operation date": payload.get("operation_date", "?"),
+                },
+                action=suggest_action(level, hedge_ticker=settings.hedge_ticker),
+            )
+            await self.alerter.send(level=level, msg=msg, payload=payload)
+
+        # Daily drain delta (existing rule).
         prev = self.store.last_snapshot(self.name, offset=1)
         if prev is not None:
             try:
-                delta = payload["total_accepted_bn"] - float(prev["total_accepted_bn"])
-                from ..config import settings
+                delta = rrp_bn - float(prev["total_accepted_bn"])
                 if delta < -settings.rrp_daily_drain_bn:
                     await self.alerter.send(
                         level="HIGH",
-                        msg=f"ON RRP drain Δ1d = {delta:+.1f} bn. Now {payload['total_accepted_bn']:.1f} bn.",
+                        msg=f"ON RRP drain Δ1d = {delta:+.1f} bn. Now {rrp_bn:.1f} bn.",
                         payload=payload,
                     )
             except Exception as e:
