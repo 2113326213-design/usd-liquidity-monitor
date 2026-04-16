@@ -1,0 +1,23 @@
+[Unit]
+Description=Fed Liquidity Monitor (background collector + alert engine)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gavin
+WorkingDirectory=/opt/usd-liquidity-monitor
+Environment="PATH=/opt/usd-liquidity-monitor/.venv/bin:/usr/bin:/bin"
+EnvironmentFile=/opt/usd-liquidity-monitor/.env
+ExecStart=/opt/usd-liquidity-monitor/.venv/bin/python -m usd_liquidity_monitor.main
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Resource limits — this is a lightweight process
+MemoryMax=512M
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

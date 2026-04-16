@@ -1,0 +1,19 @@
+[Unit]
+Description=Fed Liquidity Monitor — Streamlit Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=gavin
+WorkingDirectory=/opt/usd-liquidity-monitor
+Environment="PATH=/opt/usd-liquidity-monitor/.venv/bin:/usr/bin:/bin"
+ExecStart=/opt/usd-liquidity-monitor/.venv/bin/streamlit run usd_liquidity_monitor/dashboard/app.py \
+    --server.port 8501 \
+    --server.address 127.0.0.1 \
+    --server.headless true \
+    --browser.gatherUsageStats false
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

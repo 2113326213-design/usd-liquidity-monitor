@@ -1,0 +1,48 @@
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: liquidity
+    ports:
+      - "5433:5432"
+    volumes:
+      - tsdata:/var/lib/postgresql/data
+
+  api:
+    build: .
+    environment:
+      FRED_API_KEY: ${FRED_API_KEY:?set FRED_API_KEY in shell or .env file next to compose}
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/liquidity
+      POLYGON_API_KEY: ${POLYGON_API_KEY:-}
+      REFRESH_INTERVAL_SEC: ${REFRESH_INTERVAL_SEC:-300}
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    depends_on:
+      - db
+    ports:
+      - "8765:8765"
+
+  streamlit:
+    build: .
+    environment:
+      LIQUIDITY_API_URL: http://api:8765
+    command:
+      [
+        "streamlit",
+        "run",
+        "streamlit_app.py",
+        "--server.port",
+        "8501",
+        "--server.address",
+        "0.0.0.0",
+      ]
+    depends_on:
+      - api
+    ports:
+      - "8501:8501"
+
+volumes:
+  tsdata:
