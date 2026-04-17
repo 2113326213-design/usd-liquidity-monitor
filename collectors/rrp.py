@@ -135,11 +135,11 @@ class RRPCollector(Collector):
             }[level]
             msg = format_alert(
                 level=level,
-                title="ON RRP cushion running low — further drains hit reserves directly",
+                title="ON RRP 缓冲垫快见底 — 下次抽水直接命中银行准备金",
                 metrics={
-                    "ON RRP": f"${rrp_bn:,.1f} bn",
-                    f"{level} threshold": f"${threshold:,.0f} bn",
-                    "Operation date": payload.get("operation_date", "?"),
+                    "ON RRP":       f"${rrp_bn:,.1f} bn",
+                    f"{level} 阈值": f"${threshold:,.0f} bn",
+                    "操作日期":      payload.get("operation_date", "?"),
                 },
                 action=suggest_action(level, hedge_ticker=settings.hedge_ticker),
             )
@@ -153,7 +153,7 @@ class RRPCollector(Collector):
                 if delta < -settings.rrp_daily_drain_bn:
                     await self.alerter.send(
                         level="HIGH",
-                        msg=f"ON RRP drain Δ1d = {delta:+.1f} bn. Now {rrp_bn:.1f} bn.",
+                        msg=f"ON RRP 单日抽走 Δ1d = {delta:+.1f} bn。当前 {rrp_bn:.1f} bn。",
                         payload=payload,
                     )
             except Exception as e:

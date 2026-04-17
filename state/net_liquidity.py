@@ -114,14 +114,14 @@ class NetLiquidityCalculator:
         }[level]
         msg = format_alert(
             level=level,
-            title="Net Liquidity below structural floor",
+            title="综合水位跌破结构性底线",
             metrics={
-                "Net Liquidity": f"${net:,.1f} bn",
-                f"{level} threshold": f"${threshold:,.0f} bn",
-                "Reserves": f"${float(payload['reserves_bn']):,.1f} bn",
-                "RRP": f"${float(payload['rrp_bn']):,.1f} bn",
-                "TGA": f"${float(payload['tga_bn']):,.1f} bn",
-                "As of": payload.get("as_of", "?"),
+                "综合水位":      f"${net:,.1f} bn",
+                f"{level} 阈值": f"${threshold:,.0f} bn",
+                "准备金":        f"${float(payload['reserves_bn']):,.1f} bn",
+                "RRP":           f"${float(payload['rrp_bn']):,.1f} bn",
+                "TGA":           f"${float(payload['tga_bn']):,.1f} bn",
+                "截至日期":      payload.get("as_of", "?"),
             },
             action=suggest_action(level, hedge_ticker=settings.hedge_ticker),
         )
@@ -149,12 +149,12 @@ class NetLiquidityCalculator:
 
             msg = format_alert(
                 level="HIGH",
-                title="Net Liquidity 7-day EWMA slope reversal",
+                title="综合水位 7 日 EWMA 斜率反转",
                 metrics={
-                    "Prev slope": f"{prev_slope:+.1f} bn/day",
-                    "Current slope": f"{cur_slope:+.1f} bn/day",
-                    "Latest Net Liquidity": f"${float(series.iloc[-1]):,.1f} bn",
-                    "As of": str(df["as_of"].iloc[-1]),
+                    "前日斜率":      f"{prev_slope:+.1f} bn/day",
+                    "当前斜率":      f"{cur_slope:+.1f} bn/day",
+                    "最新综合水位":  f"${float(series.iloc[-1]):,.1f} bn",
+                    "截至日期":      str(df["as_of"].iloc[-1]),
                 },
                 action=suggest_action("HIGH", hedge_ticker=settings.hedge_ticker),
             )

@@ -70,9 +70,9 @@ class SRPCollector(Collector):
             await self.alerter.send(
                 level="CRITICAL",
                 msg=(
-                    f"🚨 SRP ACTIVATED: {payload['total_accepted_bn']:.2f} bn accepted "
-                    f"on {payload['operation_date']}. "
-                    f"Scarce → Crisis regime transition likely."
+                    f"🚨 SRP 已激活：{payload['total_accepted_bn']:.2f} bn 被接受，"
+                    f"日期 {payload['operation_date']}。"
+                    f"Scarce → Crisis regime 转变预兆。"
                 ),
                 payload=payload,
             )

@@ -88,7 +88,7 @@ def test_format_alert_without_action():
     assert "🟡 MEDIUM: Test title" in msg
     assert "├─ Foo: 1" in msg
     assert "└─ Bar: 2" in msg  # last metric uses └
-    assert "Suggested action" not in msg
+    assert "建议动作" not in msg  # no action → no action block
 
 
 def test_format_alert_with_action():
@@ -100,10 +100,10 @@ def test_format_alert_with_action():
     )
     assert "🟠 HIGH: Floor breach" in msg
     assert "Reserves: $2,950 bn" in msg
-    assert "Suggested action:" in msg
-    assert "Reduce equity exposure: −30%" in msg
-    assert "SPY put hedge" in msg
-    assert "Caveat:" in msg
+    assert "建议动作：" in msg
+    assert "减仓敞口：−30%" in msg
+    assert "SPY put 对冲" in msg
+    assert "注意：" in msg
 
 
 def test_format_alert_critical_emoji():

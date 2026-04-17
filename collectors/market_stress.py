@@ -162,9 +162,9 @@ class MarketStressCollector(Collector):
                     upgraded = {"MEDIUM": "HIGH", "HIGH": "CRITICAL"}.get(level, level)
                     if upgraded != level:
                         resonance_note = (
-                            f" (upgraded {level}→{upgraded}: slow-layer "
-                            f"resonance — Net Liq ${net_liq:,.0f} bn < "
-                            f"${settings.net_liq_medium_bn:,.0f} bn MEDIUM floor)"
+                            f"（升级 {level}→{upgraded}：慢层共振 — "
+                            f"综合水位 ${net_liq:,.0f} bn < "
+                            f"${settings.net_liq_medium_bn:,.0f} bn MEDIUM 底线）"
                         )
                         level = upgraded
             except Exception as e:
@@ -203,10 +203,10 @@ class MarketStressCollector(Collector):
 
         msg = format_alert(
             level=level,
-            title=f"Market stress pulse{resonance_note}",
+            title=f"市场压力脉搏{resonance_note}",
             metrics={
-                "Composite stress z": f"{composite:+.2f}",
-                "Aligned tickers": f"{aligned}/{total}",
+                "综合压力 z":    f"{composite:+.2f}",
+                "同向 ticker":   f"{aligned}/{total}",
                 **ticker_metrics,
             },
             action=suggest_action(level, hedge_ticker=settings.hedge_ticker),

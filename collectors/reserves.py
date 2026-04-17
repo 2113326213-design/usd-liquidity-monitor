@@ -81,11 +81,11 @@ class ReservesCollector(Collector):
             }[level]
             msg = format_alert(
                 level=level,
-                title="Reserves approaching Fed 'ample' floor",
+                title="银行准备金逼近 Fed 'ample' 底线",
                 metrics={
-                    "Reserves": f"${reserves_bn:,.1f} bn",
-                    f"{level} threshold": f"${threshold:,.0f} bn",
-                    "Observation": payload.get("observation_date", "?"),
+                    "准备金":       f"${reserves_bn:,.1f} bn",
+                    f"{level} 阈值": f"${threshold:,.0f} bn",
+                    "观测日期":      payload.get("observation_date", "?"),
                 },
                 action=suggest_action(level, hedge_ticker=settings.hedge_ticker),
             )
@@ -100,7 +100,7 @@ class ReservesCollector(Collector):
                 if abs(delta) > 100:  # large weekly move
                     await self.alerter.send(
                         level="MEDIUM",
-                        msg=f"Reserves Δw/w = {delta:+.1f} bn. Now {reserves_bn:.1f} bn.",
+                        msg=f"银行准备金 周变化 Δw/w = {delta:+.1f} bn。当前 {reserves_bn:.1f} bn。",
                         payload=payload,
                     )
             except Exception as e:

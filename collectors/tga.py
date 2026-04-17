@@ -85,20 +85,20 @@ class TGACollector(Collector):
                     # TGA falling = Treasury spending / MEDIUM observational.
                     if delta > 0:
                         level = "HIGH"
-                        title = "TGA surge — Treasury draining reserves"
+                        title = "TGA 激增 — Treasury 抽走银行准备金"
                         action = suggest_action(level, hedge_ticker=settings.hedge_ticker)
                     else:
                         level = "MEDIUM"
-                        title = "TGA drop — Treasury releasing cash (liquidity positive)"
-                        action = None  # No hedge action on inflow — this is bullish.
+                        title = "TGA 下降 — Treasury 释放现金（流动性正面）"
+                        action = None  # 流入是利好，不发对冲建议
 
                     msg = format_alert(
                         level=level,
                         title=title,
                         metrics={
-                            "TGA": f"${tga_bn:,.1f} bn",
-                            "Δ1d": f"{delta:+.1f} bn",
-                            "Record date": payload.get("record_date", "?"),
+                            "TGA 余额":   f"${tga_bn:,.1f} bn",
+                            "日变化":     f"{delta:+.1f} bn",
+                            "记录日期":   payload.get("record_date", "?"),
                         },
                         action=action,
                     )

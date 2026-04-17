@@ -59,8 +59,8 @@ def suggest_action(level: str, hedge_ticker: str = "SPY") -> dict | None:
     plan = dict(template)
     plan["hedge_ticker"] = hedge_ticker
     plan["caveat"] = (
-        f"{hedge_ticker} puts under-hedge high-beta / small-cap / tech "
-        "concentration. Size up or switch to QQQ/IWM puts if your book tilts there."
+        f"{hedge_ticker} put 对高 β / 小盘 / 科技股欠对冲。集中仓位在这类"
+        "就加大对冲或换 QQQ/IWM puts。"
     )
     return plan
 
@@ -94,19 +94,19 @@ def format_alert(
         lines.append(f"{prefix} {k}: {v}")
 
     if action:
-        lines.append("└─ Suggested action:")
+        lines.append("└─ 建议动作：")
         lines.append(
-            f"    ├─ Reduce equity exposure: −{action['reduce_equity_pct']}%"
+            f"    ├─ 减仓敞口：−{action['reduce_equity_pct']}%"
         )
         lines.append(
-            f"    ├─ {action['hedge_ticker']} put hedge: "
-            f"{action['hedge_notional_pct']}% notional, "
-            f"{action['put_dte_days']} DTE, {action['put_strike']}"
+            f"    ├─ {action['hedge_ticker']} put 对冲："
+            f"{action['hedge_notional_pct']}% 名义敞口，"
+            f"{action['put_dte_days']} 天到期，{action['put_strike']}"
         )
         lines.append(
-            f"    ├─ Review horizon: {action['review_horizon_days']} day(s)"
+            f"    ├─ 复盘时间：{action['review_horizon_days']} 天后"
         )
-        lines.append(f"    └─ Caveat: {action['caveat']}")
+        lines.append(f"    └─ 注意：{action['caveat']}")
 
     return "\n".join(lines)
 

@@ -155,17 +155,17 @@ class AuctionTailCollector(Collector):
 
         msg = format_alert(
             level=level,
-            title="30Y Treasury auction tail widening — dealer stress",
+            title="30 年国债拍卖 tail 扩大 — dealer 承接压力",
             metrics={
-                "Auction date": payload["auction_date"],
-                "High yield": f"{payload['high_yield_pct']:.4f}%",
-                "Prior DGS30": (
+                "拍卖日期":      payload["auction_date"],
+                "清算收益率":    f"{payload['high_yield_pct']:.4f}%",
+                "前日 DGS30":    (
                     f"{payload['prior_dgs30_pct']:.4f}%"
                     if payload["prior_dgs30_pct"] is not None else "n/a"
                 ),
-                "Tail": f"{tail_bp:+.2f} bp",
-                "Bid-to-cover": f"{payload['bid_to_cover']:.2f}x",
-                "Reopening": payload.get("reopening", "?"),
+                "Tail":          f"{tail_bp:+.2f} bp",
+                "认购倍数":      f"{payload['bid_to_cover']:.2f}x",
+                "是否重开":      payload.get("reopening", "?"),
             },
             action=suggest_action(level, hedge_ticker=settings.hedge_ticker),
         )
