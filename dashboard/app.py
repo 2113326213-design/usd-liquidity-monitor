@@ -196,6 +196,7 @@ ms = _load("market_stress").sort_values("as_of_utc") if not _load("market_stress
 regime_df = _load("regime").sort_values("as_of") if not _load("regime").empty else _load("regime")
 adaptive_df = _load("adaptive_thresholds") if not _load("adaptive_thresholds").empty else _load("adaptive_thresholds")
 sofr_iorb = _load("sofr_iorb").sort_values("observation_date") if not _load("sofr_iorb").empty else _load("sofr_iorb")
+fed_reaction = _load("fed_reaction") if not _load("fed_reaction").empty else _load("fed_reaction")
 
 # ═══════════════════════ 🏷 Regime status strip ═══════════════════
 # Full-width regime indicator — appears above KPIs so users see
@@ -303,6 +304,46 @@ if not regime_df.empty:
                 "意味着 RRP 不是好的 scarce 诊断——这是动态阈值暴露出的一个真正 finding。"
             )
 
+    st.divider()
+
+# ═══════════════════════ 🏛 Fed reaction forecast ═══════════════════
+if not fed_reaction.empty:
+    latest_fed = fed_reaction.iloc[-1]
+    p5 = float(latest_fed["p_5d"])
+    p10 = float(latest_fed["p_10d"])
+    p30 = float(latest_fed["p_30d"])
+    top_rule = str(latest_fed.get("top_rule_label", "—"))
+    historical = str(latest_fed.get("top_rule_historical", ""))
+
+    # Color badge based on probability
+    if p5 >= 0.7:
+        badge_color = "🔴"
+        badge_text = "Fed 高概率即将干预"
+    elif p5 >= 0.4:
+        badge_color = "🟠"
+        badge_text = "Fed 中等概率干预"
+    elif p5 >= 0.15:
+        badge_color = "🟡"
+        badge_text = "Fed 低概率干预"
+    else:
+        badge_color = "🟢"
+        badge_text = "Fed 基本不会动"
+
+    st.markdown(f"### 🏛 Fed 反应预期 · {badge_color} {badge_text}")
+    fc1, fc2, fc3 = st.columns(3)
+    fc1.metric("P(5 天内)",  f"{p5:.0%}", help="未来 5 个工作日内 Fed 干预概率")
+    fc2.metric("P(10 天内)", f"{p10:.0%}")
+    fc3.metric("P(30 天内)", f"{p30:.0%}")
+
+    st.markdown(f"**首要触发规则**：{top_rule}")
+    if historical:
+        st.caption(f"_历史参照：{historical}_")
+
+    st.caption(
+        "💡 **怎么用**：Fed 干预概率高时，playbook 的减仓/对冲建议可以**适度打折**"
+        "（Fed 会救，你不用全顶）；概率低时**照 playbook 执行或加强**（自己扛）。"
+        "这一层是观察性的——playbook 数字目前还是静态的，不自动乘以 (1-P)。"
+    )
     st.divider()
 
 # ═══════════════════════ Top row: KPI cards ═══════════════════════

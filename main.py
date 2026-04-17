@@ -28,6 +28,7 @@ from .collectors.tga import TGACollector
 from .config import settings
 from .proxy.polygon_stream import PolygonStream
 from .scheduler import build_scheduler
+from .state.fed_reaction import FedReactionTracker
 from .state.net_liquidity import NetLiquidityCalculator
 from .state.regime import RegimeTracker
 from .storage.parquet_store import ParquetStore
@@ -60,6 +61,7 @@ async def main() -> None:
     # ── Derived state ─────────────────────────────────────────────
     nl_calc = NetLiquidityCalculator(store, alerter)
     regime_tracker = RegimeTracker(store)
+    fed_tracker = FedReactionTracker(store)
 
     # ── Collectors ────────────────────────────────────────────────
     collectors = {
@@ -82,6 +84,12 @@ async def main() -> None:
     store.on("tga_updated",      regime_tracker.recompute)
     store.on("rrp_updated",      regime_tracker.recompute)
     store.on("reserves_updated", regime_tracker.recompute)
+    # Fed reaction recomputes on ALL upstream events (including SRP,
+    # SOFR-IORB, auction_tail, market_stress — any signal can shift P).
+    store.on("tga_updated",      fed_tracker.recompute)
+    store.on("rrp_updated",      fed_tracker.recompute)
+    store.on("reserves_updated", fed_tracker.recompute)
+    store.on("srp_updated",      fed_tracker.recompute)
 
     # ── Initial poll of all collectors ────────────────────────────
     if settings.initial_poll_on_start:
