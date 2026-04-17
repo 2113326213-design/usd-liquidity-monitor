@@ -53,3 +53,6 @@ htmlcov/
 # Algorithm reference material that is no longer wired into main.py /
 # dashboard. Kept for future re-integration but not tracked by git.
 _archive/
+
+# Personal roadmap — not repo docs
+PLAN.md
