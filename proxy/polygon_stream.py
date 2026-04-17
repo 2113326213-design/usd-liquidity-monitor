@@ -52,7 +52,11 @@ class PolygonStream:
     async def run(self) -> None:
         """Main loop — reconnects forever with exponential backoff."""
         if not settings.polygon_api_key:
-            logger.error("POLYGON_API_KEY not set — proxy stream disabled")
+            # Not an error — Polygon is a paid, optional data source.
+            # Users who opt out (most retail) should not see ERROR noise
+            # on every monitor start. Log once at INFO so the absence is
+            # visible but doesn't pollute error scans.
+            logger.info("POLYGON_API_KEY not set — Layer-3 proxy disabled (optional, $29/mo)")
             return
 
         backoff = self._backoff_sec
