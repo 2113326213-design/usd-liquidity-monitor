@@ -1,6 +1,6 @@
 # Walk-forward Validation Report
 
-_Generated: 2026-04-17T09:19:30.791951+00:00_
+_Generated: 2026-04-17T10:50:10.990648+00:00_
 _SPY window: 2018-04-17 → 2026-04-16_
 
 ## ⚠️ Read this first
@@ -203,11 +203,44 @@ portfolios typically see 1.5-2.5× the drawdown.
 | 10d | 15 | -0.82 | -1.93 | -2.32 | 73.3% | +37.7 pp |
 | 20d | 15 | +0.45 | +0.34 | -2.67 | 20.0% | -12.2 pp |
 
+### sofr_iorb_MEDIUM
+- **Threshold**: `spread_bp > 2.0`
+- **Historical events**: **21**
+- Event dates: `2025-12-05, 2025-12-15, 2025-12-22, 2025-12-26, 2026-01-30, 2026-02-17, 2026-02-27, 2026-03-16, 2026-03-31, 2026-04-15`
+
+| Horizon | N | Mean % | Median % | 10th pct % | P(down) | vs baseline |
+|---|---|---|---|---|---|---|
+| 5d | 20 | +0.44 | +0.42 | -1.60 | 35.0% | -4.4 pp |
+| 10d | 20 | +0.33 | +0.64 | -3.33 | 40.0% | +4.4 pp |
+| 20d | 19 | +0.92 | +1.23 | -1.69 | 21.1% | -11.1 pp |
+
+### sofr_iorb_HIGH
+- **Threshold**: `spread_bp > 5.0`
+- **Historical events**: **15**
+- Event dates: `2025-10-15, 2025-10-21, 2025-11-12, 2025-11-17, 2025-11-24, 2025-12-15, 2025-12-26, 2026-02-17, 2026-03-02, 2026-04-15`
+
+| Horizon | N | Mean % | Median % | 10th pct % | P(down) | vs baseline |
+|---|---|---|---|---|---|---|
+| 5d | 14 | +0.08 | +0.45 | -1.45 | 35.7% | -3.7 pp |
+| 10d | 14 | +0.42 | +0.65 | -1.95 | 35.7% | +0.1 pp |
+| 20d | 14 | +0.51 | +1.04 | -1.74 | 21.4% | -10.8 pp |
+
+### sofr_iorb_CRITICAL
+- **Threshold**: `spread_bp > 10.0`
+- **Historical events**: **8**
+- Event dates: `2024-10-01, 2024-12-26, 2025-09-15, 2025-10-15, 2025-10-27, 2025-11-25, 2025-12-26, 2025-12-31`
+
+| Horizon | N | Mean % | Median % | 10th pct % | P(down) | vs baseline |
+|---|---|---|---|---|---|---|
+| 5d | 8 | +0.29 | +0.60 | -0.73 | 37.5% | -1.9 pp |
+| 10d | 8 | +0.74 | +1.11 | -1.38 | 25.0% | -10.6 pp |
+| 20d | 8 | +1.00 | +1.11 | -0.50 | 12.5% | -19.7 pp |
+
 ## 🎯 Key question: does the playbook have data support?
 
-- **MEDIUM** (playbook: 减仓 15%) — total events across structural alerts: 34. Avg 10d P(SPY down): 31.0% (baseline: 35.6%). Verdict: ❌ no edge
-- **HIGH** (playbook: 减仓 30%) — total events across structural alerts: 27. Avg 10d P(SPY down): 39.3% (baseline: 35.6%). Verdict: 🟡 marginal
-- **CRITICAL** (playbook: 减仓 60%) — total events across structural alerts: 11. Avg 10d P(SPY down): 59.0% (baseline: 35.6%). Verdict: ✅ signal present
+- **MEDIUM** (playbook: 减仓 15%) — total events across structural alerts: 55. Avg 10d P(SPY down): 33.2% (baseline: 35.6%). Verdict: ❌ no edge
+- **HIGH** (playbook: 减仓 30%) — total events across structural alerts: 42. Avg 10d P(SPY down): 38.4% (baseline: 35.6%). Verdict: 🟡 marginal
+- **CRITICAL** (playbook: 减仓 60%) — total events across structural alerts: 19. Avg 10d P(SPY down): 47.6% (baseline: 35.6%). Verdict: ✅ signal present
 
 ---
 

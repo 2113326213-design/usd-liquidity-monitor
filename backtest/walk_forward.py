@@ -322,6 +322,26 @@ def run_all() -> dict[str, Any]:
                 "stats": event_return_stats(events, spy),
             }
 
+    # ── SOFR − IORB spread (above thresholds) ──
+    # Most direct reserve-scarcity signal — added after reviewer flagged it
+    # as the highest-value free indicator. Test whether empirical hit rate
+    # matches the theoretical appeal.
+    sofr_iorb = _load_parquet("sofr_iorb")
+    if not sofr_iorb.empty:
+        for tier, key in [("MEDIUM", "sofr_iorb_medium_bp"),
+                          ("HIGH",   "sofr_iorb_high_bp"),
+                          ("CRITICAL", "sofr_iorb_critical_bp")]:
+            events = first_crossings_above(
+                sofr_iorb, "observation_date", "spread_bp",
+                getattr(settings, key),
+            )
+            results["alerts"][f"sofr_iorb_{tier}"] = {
+                "threshold": f"spread_bp > {getattr(settings, key):.1f}",
+                "events": len(events),
+                "event_dates": [str(e.date()) for e in events[-10:]],
+                "stats": event_return_stats(events, spy),
+            }
+
     return results
 
 
