@@ -66,6 +66,10 @@ class TGACollector(Collector):
             "close_bal_mn": bal_mn,
         }
 
+    def validate(self, payload: dict) -> bool:
+        from ..alerts.sanity import sanity_check
+        return sanity_check("tga_bn", payload.get("close_bal_bn"))
+
     async def on_new_data(self, payload: dict) -> None:
         from ..alerts.playbook import format_alert, suggest_action
         from ..config import settings

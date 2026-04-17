@@ -68,6 +68,10 @@ class RRPCollector(Collector):
             "rate": rate,
         }
 
+    def validate(self, payload: dict) -> bool:
+        from ..alerts.sanity import sanity_check
+        return sanity_check("rrp_bn", payload.get("total_accepted_bn"))
+
     async def on_new_data(self, payload: dict) -> None:
         from ..alerts.playbook import format_alert, suggest_action, tier_level
         from ..config import settings

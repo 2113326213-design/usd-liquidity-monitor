@@ -128,11 +128,59 @@ def build_scheduler(collectors: dict) -> AsyncIOScheduler:
         id="proxy_flush", replace_existing=True,
     )
 
-    # ── Heartbeat ───────────────────────────────────────────────────
+    # ── Heartbeat (hourly log, silent) ──────────────────────────────
     sched.add_job(
         lambda: logger.info("Scheduler heartbeat"),
         CronTrigger(minute=0, timezone=ET),
         id="heartbeat", replace_existing=True,
     )
 
+    # ── Weekly health push (goes to Bark/Telegram) ──────────────────
+    # Every Monday 09:00 ET — sends an INFO-level alert with latest
+    # values so the user has proof the system is still alive. If the
+    # user stops receiving these pings, the system (or the push channel)
+    # has died — that's the whole point.
+    alerter = collectors["tga"].alerter  # same MultiAlerter shared across
+    sched.add_job(
+        _build_heartbeat_job(collectors["tga"].store, alerter),
+        CronTrigger(day_of_week="mon", hour=9, minute=0, timezone=ET),
+        id="weekly_heartbeat_push", replace_existing=True,
+    )
+
     return sched
+
+
+def _build_heartbeat_job(store, alerter):
+    """Closure capturing store + alerter for the weekly health push."""
+    async def run() -> None:
+        tga = store.last_snapshot("tga") or {}
+        rrp = store.last_snapshot("rrp") or {}
+        reserves = store.last_snapshot("reserves") or {}
+        nl = store.last_snapshot("net_liquidity") or {}
+        stress = store.last_snapshot("market_stress") or {}
+
+        def _fmt(v):
+            try:
+                return f"${float(v):,.1f} bn"
+            except (TypeError, ValueError):
+                return "—"
+
+        msg_lines = [
+            "💧 USD Liquidity Monitor — weekly health ping",
+            f"├─ TGA:          {_fmt(tga.get('close_bal_bn'))}",
+            f"├─ ON RRP:       {_fmt(rrp.get('total_accepted_bn'))}",
+            f"├─ Reserves:     {_fmt(reserves.get('reserves_bn'))}",
+            f"├─ Net Liquidity:{_fmt(nl.get('net_liquidity_bn'))}",
+            f"├─ Market z:     {stress.get('composite_stress_z', '—')}",
+            "└─ If you stop getting this every Monday, the system is down.",
+        ]
+        # Append throttle stats if available
+        stats = getattr(alerter, "stats", lambda: None)()
+        if stats:
+            msg_lines.insert(
+                -1,
+                f"├─ Alerts sent/throttled: "
+                f"{stats['sent']}/{stats['throttled']}",
+            )
+        await alerter.send(level="INFO", msg="\n".join(msg_lines))
+    return run

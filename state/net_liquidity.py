@@ -73,6 +73,20 @@ class NetLiquidityCalculator:
         if last_h == h:
             return  # no change
 
+        # Sanity gate — NetLiquidity is a derived metric; if any input
+        # collector drifted outside plausibility bounds we'd already have
+        # rejected them upstream, but double-check the composite here
+        # to guard against arithmetic surprises (e.g. two bad inputs
+        # cancelling out but the net still nonsensical).
+        from ..alerts.sanity import sanity_check
+        if not sanity_check("net_liquidity_bn", payload["net_liquidity_bn"]):
+            logger.error(
+                f"[net_liquidity] implausible composite {net:.1f} bn from "
+                f"R={payload['reserves_bn']:.1f} + RRP={payload['rrp_bn']:.1f} "
+                f"− TGA={payload['tga_bn']:.1f}; skipping write + alerts"
+            )
+            return
+
         self.store.write_snapshot(self.NAME, payload, h)
         logger.info(f"[net_liquidity] {payload['as_of']} → {net:+.1f} bn")
 

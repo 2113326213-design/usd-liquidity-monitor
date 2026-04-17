@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      macOS LaunchAgent template. DO NOT load this file directly.
+      Use `deploy/install-launchd.sh` which substitutes __PROJECT_DIR__
+      and __BUNDLE_ID__ and writes the rendered plist to
+      ~/Library/LaunchAgents/.
+    -->
+
+    <key>Label</key>
+    <string>__BUNDLE_ID__</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PROJECT_DIR__/.venv/bin/python3</string>
+        <string>-m</string>
+        <string>usd_liquidity_monitor.main</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__PROJECT_PARENT__</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+        <key>NetworkState</key>
+        <true/>
+    </dict>
+
+    <!-- Back off before restart to avoid hammering external APIs on
+         repeated failures. -->
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+
+    <key>StandardOutPath</key>
+    <string>__PROJECT_DIR__/data/logs/launchd-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>__PROJECT_DIR__/data/logs/launchd-stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>

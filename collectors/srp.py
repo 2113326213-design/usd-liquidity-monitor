@@ -61,6 +61,10 @@ class SRPCollector(Collector):
             "rate": rate,
         }
 
+    def validate(self, payload: dict) -> bool:
+        from ..alerts.sanity import sanity_check
+        return sanity_check("srp_bn", payload.get("total_accepted_bn"))
+
     async def on_new_data(self, payload: dict) -> None:
         if payload.get("total_accepted_bn", 0.0) > settings.srp_alert_min_bn:
             await self.alerter.send(

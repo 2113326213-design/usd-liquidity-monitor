@@ -128,6 +128,15 @@ class AuctionTailCollector(Collector):
             logger.warning(f"[auction_tail] FRED DGS30 fetch failed: {e}")
         return None
 
+    def validate(self, payload: dict) -> bool:
+        # tail_bp may be None if FRED is unreachable — don't fail validation
+        # on that, just skip the alert branch (handled in on_new_data).
+        from ..alerts.sanity import sanity_check
+        tail = payload.get("tail_bp")
+        if tail is None:
+            return True  # no tail computed; let on_new_data branch
+        return sanity_check("tail_bp", tail)
+
     async def on_new_data(self, payload: dict) -> None:
         tail_bp = payload.get("tail_bp")
         if tail_bp is None:
