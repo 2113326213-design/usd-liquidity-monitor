@@ -150,6 +150,51 @@ srp = _load("srp").sort_values("poll_ts") if not _load("srp").empty else _load("
 reserves = _load("reserves").sort_values("poll_ts") if not _load("reserves").empty else _load("reserves")
 nl = _load("net_liquidity").sort_values("as_of") if not _load("net_liquidity").empty else _load("net_liquidity")
 ms = _load("market_stress").sort_values("as_of_utc") if not _load("market_stress").empty else _load("market_stress")
+regime_df = _load("regime").sort_values("as_of") if not _load("regime").empty else _load("regime")
+
+# ═══════════════════════ 🏷 Regime status strip ═══════════════════
+# Full-width regime indicator — appears above KPIs so users see
+# "what regime am I in right now" before any specific number.
+_REGIME_VISUAL = {
+    "abundant": {"emoji": "🟢", "label_cn": "充裕", "color": "#2ca02c"},
+    "ample":    {"emoji": "🟡", "label_cn": "充足", "color": "#FFD700"},
+    "scarce":   {"emoji": "🟠", "label_cn": "稀缺", "color": "#FF8C00"},
+    "crisis":   {"emoji": "🔴", "label_cn": "危机", "color": "#DC143C"},
+}
+
+if not regime_df.empty:
+    latest_regime = regime_df.iloc[-1]
+    reg = str(latest_regime["regime_hard"])
+    viz = _REGIME_VISUAL.get(reg, {"emoji": "⚪", "label_cn": "未知", "color": "gray"})
+    st.markdown(
+        f"### {viz['emoji']} 当前 regime：**{reg.upper()}** · {viz['label_cn']}"
+    )
+    # 4-bar probability distribution
+    rc1, rc2, rc3, rc4 = st.columns(4)
+    for col, name, cn in [
+        (rc1, "abundant", "充裕"),
+        (rc2, "ample",    "充足"),
+        (rc3, "scarce",   "稀缺"),
+        (rc4, "crisis",   "危机"),
+    ]:
+        p = float(latest_regime[f"p_{name}"])
+        highlight = "**" if name == reg else ""
+        col.markdown(
+            f"<div style='text-align:center; padding:4px; "
+            f"background:{_REGIME_VISUAL[name]['color']}22; "
+            f"border-radius:6px;'>"
+            f"<div style='font-size:0.8em; color:gray;'>{_REGIME_VISUAL[name]['emoji']} {cn}</div>"
+            f"<div style='font-size:1.3em;'>{highlight}{p:.1%}{highlight}</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    st.caption(
+        f"基于过去 252 天 Reserves + RRP 的滚动分位数，"
+        f"当前点坐标 = (reserves_rank={latest_regime['reserves_rank']:.2f}, "
+        f"rrp_rank={latest_regime['rrp_rank']:.2f})，"
+        f"最接近 **{reg}** 原型"
+    )
+    st.divider()
 
 # ═══════════════════════ Top row: KPI cards ═══════════════════════
 c1, c2, c3, c4, c5 = st.columns(5)

@@ -28,6 +28,7 @@ from .config import settings
 from .proxy.polygon_stream import PolygonStream
 from .scheduler import build_scheduler
 from .state.net_liquidity import NetLiquidityCalculator
+from .state.regime import RegimeTracker
 from .storage.parquet_store import ParquetStore
 
 
@@ -57,6 +58,7 @@ async def main() -> None:
 
     # ── Derived state ─────────────────────────────────────────────
     nl_calc = NetLiquidityCalculator(store, alerter)
+    regime_tracker = RegimeTracker(store)
 
     # ── Collectors ────────────────────────────────────────────────
     collectors = {
@@ -69,9 +71,15 @@ async def main() -> None:
     }
 
     # ── Wire event subscribers ────────────────────────────────────
-    store.on("tga_updated", nl_calc.recompute)
-    store.on("rrp_updated", nl_calc.recompute)
+    # Order matters: nl_calc writes net_liquidity.parquet, regime_tracker
+    # reads it. ParquetStore.trigger awaits callbacks sequentially in
+    # registration order, so nl_calc runs first.
+    store.on("tga_updated",      nl_calc.recompute)
+    store.on("rrp_updated",      nl_calc.recompute)
     store.on("reserves_updated", nl_calc.recompute)
+    store.on("tga_updated",      regime_tracker.recompute)
+    store.on("rrp_updated",      regime_tracker.recompute)
+    store.on("reserves_updated", regime_tracker.recompute)
 
     # ── Initial poll of all collectors ────────────────────────────
     if settings.initial_poll_on_start:
