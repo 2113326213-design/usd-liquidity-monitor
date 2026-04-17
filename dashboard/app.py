@@ -94,7 +94,11 @@ _PLOTLY_CONFIG = {
 
 
 def _range_selector_xaxis():
-    """Shared rangeselector button strip for time-series charts."""
+    """Shared rangeselector button strip for time-series charts.
+
+    Positioned above the plot area (y=1.15) to stay well clear of any
+    top-anchored legend. Works with the layout pattern of putting
+    legends below the plot (y=-0.18 or similar)."""
     return dict(
         rangeselector=dict(
             buttons=[
@@ -106,8 +110,19 @@ def _range_selector_xaxis():
             ],
             bgcolor="rgba(128,128,128,0.08)",
             activecolor="rgba(70,130,180,0.6)",
+            x=0, y=1.15, xanchor="left", yanchor="bottom",
         ),
     )
+
+
+# Shared legend layout: below the chart, horizontal, centered.
+_LEGEND_BELOW = dict(
+    orientation="h",
+    yanchor="top",
+    y=-0.18,
+    xanchor="center",
+    x=0.5,
+)
 
 
 def _default_range_last_months(x_series: pd.Series, months: int = 6) -> list:
@@ -594,9 +609,10 @@ if not nl.empty:
         height=460,
         xaxis=xaxis_dict,
         yaxis_title="Billion USD",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        legend=_LEGEND_BELOW,
         hovermode="x unified",
         dragmode=False,
+        margin=dict(t=80, b=90, l=60, r=30),
     )
     st.plotly_chart(fig, use_container_width=True, config=_PLOTLY_CONFIG)
     st.caption("💡 默认显示最近 6 个月。点上方 1M/3M/6M/1Y/ALL 切换窗口。鼠标悬停查看数值。")
@@ -634,9 +650,10 @@ if not nl.empty:
         height=420,
         xaxis=xaxis_dict,
         yaxis_title="Billion USD (signed)",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        legend=_LEGEND_BELOW,
         hovermode="x unified",
         dragmode=False,
+        margin=dict(t=80, b=90, l=60, r=30),
     )
     st.plotly_chart(fig, use_container_width=True, config=_PLOTLY_CONFIG)
 
@@ -682,11 +699,13 @@ if not sofr_iorb.empty:
     if default_range is not None:
         xaxis_dict["range"] = default_range
     fig.update_layout(
-        height=380,
+        height=400,
         xaxis=xaxis_dict,
         yaxis_title="Spread (bp)",
         hovermode="x unified",
         dragmode=False,
+        showlegend=False,   # single trace — legend would be redundant
+        margin=dict(t=80, b=60, l=60, r=30),
     )
     st.plotly_chart(fig, use_container_width=True, config=_PLOTLY_CONFIG)
 else:
@@ -732,14 +751,15 @@ if not ms.empty:
         line=dict(width=2, color="#d62728"),
     ))
     fig.update_layout(
-        height=380,
+        height=400,
         xaxis_title="UTC",
-        yaxis_title="Composite stress z (> 0 = stress-aligned)",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        yaxis_title="综合压力 z（>0 = 压力方向）",
         hovermode="x unified",
         yaxis=dict(range=[min(-3, ms_recent["composite_stress_z"].min() - 0.5),
                           max(5, ms_recent["composite_stress_z"].max() + 0.5)]),
         dragmode=False,
+        showlegend=False,
+        margin=dict(t=60, b=60, l=60, r=30),
     )
     st.plotly_chart(fig, use_container_width=True, config=_PLOTLY_CONFIG)
     st.caption(
