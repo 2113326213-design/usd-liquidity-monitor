@@ -20,6 +20,38 @@ from streamlit_autorefresh import st_autorefresh
 DATA_DIR = (Path(__file__).parent.parent / "data" / "raw").resolve()
 
 
+# Threshold tiers — must stay in sync with config.py defaults. If you
+# tune the thresholds in .env, update these too so the dashboard badges
+# match the alert levels the monitor is firing on.
+RESERVES_TIERS = {"medium": 3200.0, "high": 3000.0, "critical": 2800.0}
+RRP_TIERS      = {"medium": 200.0,  "high": 100.0,  "critical": 50.0}
+NET_LIQ_TIERS  = {"medium": 2400.0, "high": 2200.0, "critical": 2000.0}
+MARKET_Z_TIERS = {"medium": 2.0,    "high": 3.0,    "critical": 4.0}
+
+
+def regime_emoji(value, tiers, direction="below"):
+    """Traffic-light emoji for a metric against its tiered thresholds.
+
+    direction="below": lower is worse (reserves, RRP, net liquidity).
+    direction="above": higher is worse (stress z, auction tail)."""
+    if value is None:
+        return "⚪"
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return "⚪"
+    if direction == "below":
+        if v < tiers["critical"]: return "🔴"
+        if v < tiers["high"]:     return "🟠"
+        if v < tiers["medium"]:   return "🟡"
+        return "🟢"
+    else:  # above
+        if v > tiers["critical"]: return "🔴"
+        if v > tiers["high"]:     return "🟠"
+        if v > tiers["medium"]:   return "🟡"
+        return "🟢"
+
+
 st.set_page_config(
     page_title="Fed Liquidity Monitor",
     page_icon="💧",
@@ -56,6 +88,39 @@ st.caption(
     f"| Auto-refresh: 60s"
 )
 
+# ═══════════════════════ 📖 Reading guide (collapsible) ═══════════
+with st.expander("📖 怎么读这些数据 · How to read this dashboard", expanded=False):
+    st.markdown(
+        """
+### 一句话总览
+**Net Liquidity = Reserves + RRP − TGA** 是综合水位。水位降到阈值以下，系统推告警。
+
+| 指标 | 意思 | 关注方向 | 阈值（从 .env） |
+|---|---|---|---|
+| **TGA** 🏦 | 美国财政部账户 | ↑=Treasury 抽银行的钱（**坏**）；↓=Treasury 花钱回流（**好**） | 看日变化 > 50bn 就留意 |
+| **ON RRP** 🛋 | 货币基金的缓冲垫 | ↓=缓冲被消耗，下次抽水将直接命中银行准备金 | 🟡<200 🟠<100 🔴<50 bn |
+| **Reserves** 🏛 | 银行放在 Fed 的现金（真·流动性） | ↓=银行开始缺钱 | 🟡<3.2T 🟠<3.0T 🔴<2.8T |
+| **SRP** 🚨 | 银行向 Fed 紧急借款窗口 | 平时 = 0；**任何非零 = 危机** | **>0 直接 CRITICAL** |
+| **Net Liquidity** 💧 | 综合水位 | 趋势向下 + 绝对水位低 = 风险升高 | 🟡<2.4T 🟠<2.2T 🔴<2.0T |
+| **Market Stress z** ⚡ | ETF + VIX 综合压力分数（15 分钟刷新） | >0 = 股市开始不安；> 2σ = 警觉 | 🟡>2 🟠>3 🔴>4 |
+| **30Y 拍卖 tail** 📉 | 拍卖需求强弱（领先 2-4 周） | <0 强需求；>0 dealer 勉强 | 🟡>2 🟠>4 🔴>6 bp |
+
+### 一天 1 分钟读法
+1. 扫一眼 5 张 KPI 卡片，看右上角 emoji
+2. 全 🟢 → 今天没事，关掉就行
+3. 出现 🟡 → 留意这个指标，明天继续看
+4. 出现 🟠 → 慢层已压力，快层（Market z）会告诉你市场开始反应没有
+5. 出现 🔴 → 真事件，看 iPhone Bark 推送的行动建议
+
+### 两个"共振"时最有价值
+- **慢层 + 快层同时异常**：结构性压力 + 市场开始 price it in → 历史上这是危机前 3-7 天的特征
+- **30Y tail 扩大 + 准备金慢慢下跌**：2-4 周级的领先——最珍贵的预警窗口
+
+### ⚠ 注意
+这不是投资建议。阈值基于 2019 repo、2020 COVID、2023 SVB 三次危机校准，但**没有经过完整回测**（下一步工作）。用作决策**起点**，不是终点。
+"""
+    )
+
 # ═══════════════════════ Data load ════════════════════════════════
 tga = _load("tga").sort_values("poll_ts") if not _load("tga").empty else _load("tga")
 rrp = _load("rrp").sort_values("poll_ts") if not _load("rrp").empty else _load("rrp")
@@ -68,30 +133,59 @@ ms = _load("market_stress").sort_values("as_of_utc") if not _load("market_stress
 c1, c2, c3, c4, c5 = st.columns(5)
 
 with c1:
+    # TGA has no tiered floor — watch the daily delta, not the level.
     val, delta = _latest_delta(tga, "close_bal_bn")
     if val is not None:
-        st.metric("TGA", f"${val:,.1f} bn",
-                  f"{delta:+.1f} bn" if delta is not None else None,
-                  delta_color="inverse",  # TGA up = liquidity drain = bad
-                  help="Treasury General Account. Up = Treasury吸水.")
+        st.metric(
+            "🏦 TGA · 财政部账户",
+            f"${val:,.0f} bn",
+            f"{delta:+.0f} bn" if delta is not None else None,
+            delta_color="inverse",
+            help=(
+                "美国财政部在 Fed 的账户。\n"
+                "↑ 上涨 = Treasury 抽银行的钱（流动性↓，坏）\n"
+                "↓ 下跌 = Treasury 花钱进市场（流动性↑，好）\n"
+                "看日变化：|Δ1d| > 50bn 即告警"
+            ),
+        )
     else:
         st.metric("TGA", "no data")
 
 with c2:
     val, delta = _latest_delta(rrp, "total_accepted_bn")
     if val is not None:
-        st.metric("ON RRP", f"${val:,.1f} bn",
-                  f"{delta:+.1f} bn" if delta is not None else None,
-                  help="Overnight Reverse Repo. Down = RRP draining → reserves.")
+        emo = regime_emoji(val, RRP_TIERS, "below")
+        st.metric(
+            f"🛋 ON RRP · 缓冲垫 {emo}",
+            f"${val:,.1f} bn",
+            f"{delta:+.1f} bn" if delta is not None else None,
+            help=(
+                "货币基金过夜存 Fed 的缓冲垫。\n"
+                "🟢 >200bn 缓冲充足\n"
+                "🟡 <200bn 开始紧\n"
+                "🟠 <100bn 基本耗尽\n"
+                "🔴 <50bn 下次抽水直接命中银行准备金"
+            ),
+        )
     else:
         st.metric("ON RRP", "no data")
 
 with c3:
     val, delta = _latest_delta(reserves, "reserves_bn")
     if val is not None:
-        st.metric("Reserves (WRESBAL)", f"${val:,.1f} bn",
-                  f"{delta:+.1f} bn" if delta is not None else None,
-                  help="Bank reserves at the Fed (weekly).")
+        emo = regime_emoji(val, RESERVES_TIERS, "below")
+        st.metric(
+            f"🏛 Reserves · 银行准备金 {emo}",
+            f"${val:,.0f} bn",
+            f"{delta:+.0f} bn" if delta is not None else None,
+            help=(
+                "银行放在 Fed 的现金 = 真·流动性。\n"
+                "🟢 >3.2T 充裕（Abundant）\n"
+                "🟡 <3.2T 充足下沿（Ample）\n"
+                "🟠 <3.0T 接近 Fed 警戒线\n"
+                "🔴 <2.8T 2019 repo 危机级别"
+            ),
+        )
     else:
         st.metric("Reserves", "no data")
 
@@ -99,28 +193,127 @@ with c4:
     if not srp.empty:
         latest = float(srp["total_accepted_bn"].iloc[-1])
         if latest > 0:
-            st.metric("🚨 SRP", f"${latest:,.2f} bn", "CRISIS",
-                      delta_color="inverse",
-                      help="SRP non-zero = Scarce→Crisis regime")
+            st.metric(
+                "🚨 SRP · 紧急借款",
+                f"${latest:,.2f} bn",
+                "CRISIS",
+                delta_color="inverse",
+                help="银行向 Fed 紧急借款的量。任何非零 = 有银行在抢钱 = 危机模式",
+            )
         else:
-            st.metric("SRP", "$0.00 bn", "Normal",
-                      help="Standing Repo Facility usage (should be zero).")
+            st.metric(
+                "🚨 SRP · 紧急借款 🟢",
+                "$0.00 bn",
+                "正常",
+                help="平时应为 0。一旦非零 = CRITICAL 告警立即发。2019 repo 危机时爆过。",
+            )
     else:
         st.metric("SRP", "no data")
 
 with c5:
     val, delta = _latest_delta(nl, "net_liquidity_bn")
     if val is not None:
-        st.metric("Net Liquidity", f"${val:,.1f} bn",
-                  f"{delta:+.1f} bn" if delta is not None else None,
-                  help="Reserves + RRP − TGA. The composite water level.")
+        emo = regime_emoji(val, NET_LIQ_TIERS, "below")
+        st.metric(
+            f"💧 Net Liquidity · 综合水位 {emo}",
+            f"${val:,.0f} bn",
+            f"{delta:+.0f} bn" if delta is not None else None,
+            help=(
+                "Reserves + RRP − TGA = 给股市的那碗汤还剩多少。\n"
+                "🟢 >2.4T 安全\n"
+                "🟡 <2.4T 压力累积中（MEDIUM）\n"
+                "🟠 <2.2T 明显紧张（HIGH）\n"
+                "🔴 <2.0T 结构性危险（CRITICAL）"
+            ),
+        )
     else:
         st.metric("Net Liquidity", "not yet computed")
+
+# ═══════════════════════ 🧭 现状解读 (auto-generated) ═════════════
+# Auto-built narrative so the user gets a plain-language read of where
+# the system stands right now, without having to interpret 5 KPIs.
+def _build_current_state() -> str:
+    lines: list[str] = []
+
+    # Reserves
+    r_val, _ = _latest_delta(reserves, "reserves_bn")
+    if r_val is not None:
+        emo = regime_emoji(r_val, RESERVES_TIERS, "below")
+        if emo == "🟢":
+            lines.append(f"{emo} **银行准备金** 在充裕区（${r_val:,.0f} bn > $3.2T）")
+        elif emo == "🟡":
+            lines.append(
+                f"{emo} **银行准备金** 已跌破 MEDIUM 线（${r_val:,.0f} bn < $3.2T）"
+                " — 压力累积阶段"
+            )
+        elif emo == "🟠":
+            lines.append(
+                f"{emo} **银行准备金** 接近 Fed 警戒线（${r_val:,.0f} bn < $3.0T）"
+                " — HIGH 告警触发"
+            )
+        else:
+            lines.append(
+                f"{emo} **银行准备金** 危机级别（${r_val:,.0f} bn < $2.8T）"
+                " — 2019 repo 复刻风险"
+            )
+
+    # ON RRP cushion
+    rrp_val, _ = _latest_delta(rrp, "total_accepted_bn")
+    if rrp_val is not None:
+        emo = regime_emoji(rrp_val, RRP_TIERS, "below")
+        if emo in ("🟠", "🔴"):
+            lines.append(
+                f"{emo} **RRP 缓冲垫** 基本耗尽（${rrp_val:,.1f} bn）"
+                " — 下次 Treasury 抽水直接命中准备金"
+            )
+        elif emo == "🟡":
+            lines.append(f"{emo} **RRP 缓冲垫** 薄（${rrp_val:,.0f} bn）")
+        else:
+            lines.append(f"{emo} **RRP 缓冲垫** 充足（${rrp_val:,.0f} bn）")
+
+    # Net Liquidity
+    nl_val, nl_delta = _latest_delta(nl, "net_liquidity_bn")
+    if nl_val is not None:
+        emo = regime_emoji(nl_val, NET_LIQ_TIERS, "below")
+        delta_s = (
+            f"（w/w {nl_delta:+.0f} bn）" if nl_delta else ""
+        )
+        lines.append(f"{emo} **综合水位** ${nl_val:,.0f} bn {delta_s}")
+
+    # SRP — the alarm bell
+    if not srp.empty:
+        srp_val = float(srp["total_accepted_bn"].iloc[-1])
+        if srp_val > 0:
+            lines.append(f"🚨 **SRP 非零** — ${srp_val:,.2f} bn 被接受 — **CRISIS 模式**")
+        else:
+            lines.append("🟢 **SRP 为 0**（紧急借款窗口未启用）")
+
+    # Market stress z
+    if not ms.empty:
+        z = float(ms["composite_stress_z"].iloc[-1])
+        if abs(z) < 1:
+            lines.append(f"🟢 **市场情绪** 平静（z = {z:+.2f}）")
+        elif z > 2:
+            emo = regime_emoji(z, MARKET_Z_TIERS, "above")
+            lines.append(f"{emo} **市场情绪** 紧张（z = {z:+.2f}）— 快层已开始反应")
+        else:
+            lines.append(f"🟢 **市场情绪** 无异动（z = {z:+.2f}）")
+
+    return "\n\n".join(f"- {ln}" for ln in lines)
+
+
+with st.container():
+    st.markdown("### 🧭 现状解读")
+    st.markdown(_build_current_state() or "_等待首次数据抓取..._")
 
 st.divider()
 
 # ═══════════════════════ Net Liquidity chart ══════════════════════
-st.subheader("Net Liquidity = Reserves + RRP − TGA")
+st.subheader("💧 Net Liquidity = Reserves + RRP − TGA")
+st.caption(
+    "蓝色实线 = 综合水位；橙色虚线 = 7 日指数移动平均；"
+    "黄/橙/红水平线 = MEDIUM/HIGH/CRITICAL 阈值（跌破即告警）。"
+)
 
 if not nl.empty:
     nl_plot = nl.drop_duplicates(subset=["as_of"], keep="last").sort_values("as_of")
@@ -133,7 +326,7 @@ if not nl.empty:
             mode="lines+markers",
             name="Net Liquidity",
             line=dict(width=3, color="#1f77b4"),
-            marker=dict(size=6),
+            marker=dict(size=4),
         )
     )
     # 7-day EWMA
@@ -147,8 +340,24 @@ if not nl.empty:
             line=dict(width=2, dash="dash", color="#ff7f0e"),
         )
     )
+    # Threshold hlines so user sees how close the current value is to firing
+    for tier_name, color in [
+        ("medium",   "#FFD700"),
+        ("high",     "#FF8C00"),
+        ("critical", "#DC143C"),
+    ]:
+        fig.add_hline(
+            y=NET_LIQ_TIERS[tier_name],
+            line_dash="dot",
+            line_color=color,
+            line_width=1,
+            annotation_text=f"{tier_name.upper()} ${NET_LIQ_TIERS[tier_name]:.0f}bn",
+            annotation_position="right",
+            annotation_font_color=color,
+            annotation_font_size=10,
+        )
     fig.update_layout(
-        height=420,
+        height=440,
         xaxis_title="As-of date",
         yaxis_title="Billion USD",
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
