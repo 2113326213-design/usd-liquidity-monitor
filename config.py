@@ -83,6 +83,14 @@ class Settings(BaseSettings):
     market_stress_high_z: float = 3.0
     market_stress_critical_z: float = 4.0
 
+    # ─── 30Y auction tail (leading indicator) ────────────
+    # Tail (bp) = clearing high yield − prior-day DGS30 close. Normal
+    # auctions clear within 0-1 bp. Historical "serious stress"
+    # threshold is ~6 bp (2018 Q4, 2023 Oct 30y stress).
+    auction_tail_medium_bp: float = 2.0
+    auction_tail_high_bp: float = 4.0
+    auction_tail_critical_bp: float = 6.0
+
     # ─── Operational ───────────────────────────────────
     # If True, run a one-off initial poll at startup for every collector
     initial_poll_on_start: bool = True

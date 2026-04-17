@@ -62,6 +62,7 @@ rrp = _load("rrp").sort_values("poll_ts") if not _load("rrp").empty else _load("
 srp = _load("srp").sort_values("poll_ts") if not _load("srp").empty else _load("srp")
 reserves = _load("reserves").sort_values("poll_ts") if not _load("reserves").empty else _load("reserves")
 nl = _load("net_liquidity").sort_values("as_of") if not _load("net_liquidity").empty else _load("net_liquidity")
+ms = _load("market_stress").sort_values("as_of_utc") if not _load("market_stress").empty else _load("market_stress")
 
 # ═══════════════════════ Top row: KPI cards ═══════════════════════
 c1, c2, c3, c4, c5 = st.columns(5)
@@ -185,6 +186,61 @@ if not nl.empty:
         hovermode="x unified",
     )
     st.plotly_chart(fig, use_container_width=True)
+
+# ═══════════════════════ Layer-2 Market Stress (yfinance) ═════════
+st.subheader("Layer-2 Market Stress (ETF + VIX basket, 1h z-score)")
+
+if not ms.empty:
+    ms_plot = ms.copy()
+    ms_plot["ts"] = pd.to_datetime(ms_plot["as_of_utc"])
+    # Show last 30 days by default — full 2y history is too dense
+    cutoff = ms_plot["ts"].max() - pd.Timedelta(days=30)
+    ms_recent = ms_plot[ms_plot["ts"] > cutoff].copy()
+
+    # Current composite z
+    latest_z = float(ms_recent["composite_stress_z"].iloc[-1])
+    aligned = int(ms_recent["tickers_stress_aligned"].iloc[-1])
+    total = int(ms_recent["tickers_returned"].iloc[-1])
+    badge_color = "🟢" if abs(latest_z) < 1 else ("🟡" if latest_z < 2 else ("🟠" if latest_z < 3 else "🚨🔴"))
+    st.caption(
+        f"**Latest composite stress z:** {badge_color} `{latest_z:+.2f}` "
+        f"(aligned tickers: {aligned}/{total}) · "
+        f"Thresholds: MEDIUM 2.0 / HIGH 3.0 / CRITICAL 4.0"
+    )
+
+    fig = go.Figure()
+    # threshold bands
+    fig.add_hrect(y0=2.0, y1=3.0, fillcolor="yellow", opacity=0.08, layer="below", line_width=0)
+    fig.add_hrect(y0=3.0, y1=4.0, fillcolor="orange", opacity=0.10, layer="below", line_width=0)
+    fig.add_hrect(y0=4.0, y1=10, fillcolor="red", opacity=0.12, layer="below", line_width=0)
+    fig.add_hline(y=0, line_dash="dot", line_color="gray", opacity=0.4)
+
+    # composite line
+    fig.add_trace(go.Scatter(
+        x=ms_recent["ts"],
+        y=ms_recent["composite_stress_z"],
+        mode="lines",
+        name="Composite stress z",
+        line=dict(width=2, color="#d62728"),
+    ))
+    fig.update_layout(
+        height=380,
+        xaxis_title="UTC",
+        yaxis_title="Composite stress z (> 0 = stress-aligned)",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        hovermode="x unified",
+        yaxis=dict(range=[min(-3, ms_recent["composite_stress_z"].min() - 0.5),
+                          max(5, ms_recent["composite_stress_z"].max() + 0.5)]),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    st.caption(
+        f"Last 30 days · {len(ms_recent):,} hourly bars · "
+        f"Basket: SPY / ^VIX / TLT / IEF / LQD / HYG (sign-adjusted so positive = stress)"
+    )
+else:
+    st.info("No market_stress data yet. Scheduler polls every 15 min during US market hours.")
+
+st.divider()
 
 # ═══════════════════════ Layer-3 proxy (if data exists) ═══════════
 st.subheader("Layer-3 Proxy Stress (minute bars)")

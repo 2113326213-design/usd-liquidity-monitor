@@ -10,7 +10,7 @@ results published immediately after close (usually by 13:20 ET).
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from loguru import logger
@@ -24,8 +24,9 @@ class RRPCollector(Collector):
 
     async def fetch(self) -> dict | None:
         # Pull last 14 days to be safe; we take the latest overnight op
-        start = (datetime.utcnow() - timedelta(days=14)).strftime("%Y-%m-%d")
-        end = datetime.utcnow().strftime("%Y-%m-%d")
+        now = datetime.now(timezone.utc)
+        start = (now - timedelta(days=14)).strftime("%Y-%m-%d")
+        end = now.strftime("%Y-%m-%d")
         params = {"startDate": start, "endDate": end}
 
         async with httpx.AsyncClient(timeout=15) as c:

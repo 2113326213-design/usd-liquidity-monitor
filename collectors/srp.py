@@ -14,7 +14,7 @@ always covers the last 14 days, so no date params are needed.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 import httpx
 from loguru import logger
@@ -37,7 +37,7 @@ class SRPCollector(Collector):
         if not ops:
             return {
                 "operation_id": None,
-                "operation_date": datetime.utcnow().strftime("%Y-%m-%d"),
+                "operation_date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                 "total_accepted_bn": 0.0,
                 "note": "no recent SRP operations — normal",
             }

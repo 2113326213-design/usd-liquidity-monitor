@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      macOS LaunchAgent — runs the monitor automatically on login and
+      keeps it alive. Install with:
+
+        cp deploy/com.gujiaxin.usd-liquidity-monitor.plist ~/Library/LaunchAgents/
+        launchctl load ~/Library/LaunchAgents/com.gujiaxin.usd-liquidity-monitor.plist
+
+      To start/stop without reboot:
+        launchctl start  com.gujiaxin.usd-liquidity-monitor
+        launchctl stop   com.gujiaxin.usd-liquidity-monitor
+
+      To uninstall:
+        launchctl unload ~/Library/LaunchAgents/com.gujiaxin.usd-liquidity-monitor.plist
+        rm ~/Library/LaunchAgents/com.gujiaxin.usd-liquidity-monitor.plist
+
+      Logs land in data/logs/ (stdout/stderr redirected below).
+
+      Note: this is an ALTERNATIVE to the tmux setup. Do not run both.
+      If tmux is running, either kill it or skip loading this plist.
+    -->
+
+    <key>Label</key>
+    <string>com.gujiaxin.usd-liquidity-monitor</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/gujiaxin/Desktop/usd_liquidity_monitor/.venv/bin/python3</string>
+        <string>-m</string>
+        <string>usd_liquidity_monitor.main</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/gujiaxin/Desktop</string>
+
+    <!-- Run when agent loads (login), and restart on crash. -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+        <!-- Only keep alive when network is reachable; avoids tight
+             restart loops when you're offline. -->
+        <key>NetworkState</key>
+        <true/>
+    </dict>
+
+    <!-- Back off before restart to avoid hammering external APIs on
+         repeated failures. -->
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+
+    <key>StandardOutPath</key>
+    <string>/Users/gujiaxin/Desktop/usd_liquidity_monitor/data/logs/launchd-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/gujiaxin/Desktop/usd_liquidity_monitor/data/logs/launchd-stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+</dict>
+</plist>

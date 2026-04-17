@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import pytest
 
+from ..collectors.auction_tail import AuctionTailCollector
 from ..collectors.market_stress import MarketStressCollector
 from ..collectors.reserves import ReservesCollector
 from ..collectors.rrp import RRPCollector
@@ -133,6 +134,24 @@ async def test_reserves_fetch_returns_wresbal(store, alerter):
 
 
 # ───────────────────────── Market Stress (yfinance) ─────────────────────────
+
+@pytest.mark.smoke
+@pytest.mark.asyncio
+async def test_auction_tail_fetch_returns_latest(store, alerter):
+    """TreasuryDirect 30Y auction API + FRED DGS30 cross-reference."""
+    payload = await AuctionTailCollector(store, alerter).fetch()
+    assert payload is not None, "auction_tail fetch returned None"
+    assert "auction_date" in payload
+    assert "high_yield_pct" in payload
+    assert 0 < payload["high_yield_pct"] < 15, (
+        f"high_yield_pct looks wrong: {payload['high_yield_pct']}"
+    )
+    # tail_bp may be None if FRED key is missing; don't fail on that
+    if payload.get("tail_bp") is not None:
+        assert -100 < payload["tail_bp"] < 100, (
+            f"tail_bp out of range: {payload['tail_bp']}"
+        )
+
 
 @pytest.mark.smoke
 @pytest.mark.asyncio

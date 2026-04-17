@@ -18,6 +18,7 @@ from loguru import logger
 from .alerts.bark import BarkAlerter
 from .alerts.multi import MultiAlerter
 from .alerts.telegram import TelegramAlerter
+from .collectors.auction_tail import AuctionTailCollector
 from .collectors.market_stress import MarketStressCollector
 from .collectors.reserves import ReservesCollector
 from .collectors.rrp import RRPCollector
@@ -64,6 +65,7 @@ async def main() -> None:
         "srp": SRPCollector(store, alerter),
         "reserves": ReservesCollector(store, alerter),
         "market_stress": MarketStressCollector(store, alerter),
+        "auction_tail": AuctionTailCollector(store, alerter),
     }
 
     # ── Wire event subscribers ────────────────────────────────────
