@@ -106,6 +106,16 @@ def build_scheduler(collectors: dict) -> AsyncIOScheduler:
             id="auction_tail_daily", replace_existing=True,
         )
 
+    # ── SOFR − IORB spread (direct reserve-scarcity signal) ────────
+    # FRED publishes both series ~8 AM ET for prior business day. Poll
+    # at 15:00 ET to be safely past publication.
+    if "sofr_iorb" in collectors:
+        sched.add_job(
+            collectors["sofr_iorb"].poll,
+            CronTrigger(day_of_week="mon-fri", hour=15, minute=30, timezone=ET),
+            id="sofr_iorb_daily", replace_existing=True,
+        )
+
     # ── Market stress (Layer-2 fast pulse via yfinance) ─────────────
     # Every 15 min during US market hours (9:30-16:00 ET, mon-fri).
     # yfinance gives us ~15-min delayed data — cheaper than Polygon, adequate

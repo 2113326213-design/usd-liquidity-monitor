@@ -91,6 +91,15 @@ class Settings(BaseSettings):
     auction_tail_high_bp: float = 4.0
     auction_tail_critical_bp: float = 6.0
 
+    # ─── SOFR − IORB spread (most direct reserve-scarcity signal) ──
+    # When SOFR > IORB, banks pay above Fed's deposit rate in the repo
+    # market → reserves are scarce. Normal spread oscillates around 0.
+    # Quarter-end pressure can briefly push to +3-5 bp without being a
+    # real crisis. 2019-09-17 repo event hit +50 bp.
+    sofr_iorb_medium_bp:   float = 2.0
+    sofr_iorb_high_bp:     float = 5.0
+    sofr_iorb_critical_bp: float = 10.0
+
     # ─── Operational ───────────────────────────────────
     # If True, run a one-off initial poll at startup for every collector
     initial_poll_on_start: bool = True

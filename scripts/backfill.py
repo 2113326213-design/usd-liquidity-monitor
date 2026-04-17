@@ -35,6 +35,77 @@ from ..collectors.market_stress import STRESS_DIRECTION
 from ..config import settings
 
 
+# ───────────────────────── SOFR − IORB spread ─────────────────────────
+
+async def backfill_sofr_iorb() -> None:
+    """Daily SOFR + IORB (+ IOER predecessor) from FRED, compute spread."""
+    if not settings.fred_api_key:
+        print("[sofr_iorb] SKIP — no FRED_API_KEY")
+        return
+
+    url = "https://api.stlouisfed.org/fred/series/observations"
+
+    async def _series(series_id: str) -> dict[str, float]:
+        params = {
+            "series_id": series_id,
+            "api_key": settings.fred_api_key,
+            "file_type": "json",
+            "observation_start": START_DATE.isoformat(),
+            "observation_end": END_DATE.isoformat(),
+            "limit": "100000",
+        }
+        async with httpx.AsyncClient(timeout=60) as c:
+            r = await c.get(url, params=params)
+            r.raise_for_status()
+        obs = r.json().get("observations", [])
+        return {
+            o["date"]: float(o["value"])
+            for o in obs
+            if o.get("value") and o["value"] != "."
+        }
+
+    sofr = await _series("SOFR")
+    iorb = await _series("IORB")
+    # IOER is the pre-2021 predecessor — stitch for dates before IORB
+    ioer = await _series("IOER")
+
+    # Build merged rate series
+    rates: list[dict] = []
+    all_dates = sorted(set(sofr.keys()) | set(iorb.keys()) | set(ioer.keys()))
+    for d in all_dates:
+        sofr_pct = sofr.get(d)
+        iorb_pct = iorb.get(d) or ioer.get(d)  # IOER only used when IORB missing
+        if sofr_pct is None or iorb_pct is None:
+            continue
+        spread_bp = round((sofr_pct - iorb_pct) * 100, 3)
+        rates.append({
+            "observation_date": d,
+            "sofr_pct":  round(sofr_pct, 4),
+            "iorb_pct":  round(iorb_pct, 4),
+            "spread_bp": spread_bp,
+            "poll_ts":   f"{d}T20:00:00+00:00",
+        })
+
+    if not rates:
+        print("[sofr_iorb] no data")
+        return
+    df = pd.DataFrame(rates)
+    df["_hash"] = df.apply(
+        lambda r: hashlib.md5(
+            f"{r['observation_date']}:{r['spread_bp']}".encode()
+        ).hexdigest(),
+        axis=1,
+    )
+    df = df.sort_values("observation_date").reset_index(drop=True)
+    df.to_parquet(DATA_DIR / "sofr_iorb.parquet", index=False)
+    print(
+        f"[sofr_iorb] {len(df)} rows, "
+        f"{df['observation_date'].iloc[0]} → {df['observation_date'].iloc[-1]}, "
+        f"max spread = {df['spread_bp'].max():.2f} bp on "
+        f"{df.loc[df['spread_bp'].idxmax(), 'observation_date']}"
+    )
+
+
 YEARS = 5
 END_DATE: date = datetime.now(timezone.utc).date()
 START_DATE: date = END_DATE - timedelta(days=365 * YEARS)
@@ -494,6 +565,7 @@ async def _async_sources() -> None:
         backfill_reserves(),
         backfill_rrp(),
         backfill_srp(),
+        backfill_sofr_iorb(),
     )
 
 

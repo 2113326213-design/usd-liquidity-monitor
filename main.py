@@ -22,6 +22,7 @@ from .collectors.auction_tail import AuctionTailCollector
 from .collectors.market_stress import MarketStressCollector
 from .collectors.reserves import ReservesCollector
 from .collectors.rrp import RRPCollector
+from .collectors.sofr_iorb import SofrIorbCollector
 from .collectors.srp import SRPCollector
 from .collectors.tga import TGACollector
 from .config import settings
@@ -68,6 +69,7 @@ async def main() -> None:
         "reserves": ReservesCollector(store, alerter),
         "market_stress": MarketStressCollector(store, alerter),
         "auction_tail": AuctionTailCollector(store, alerter),
+        "sofr_iorb": SofrIorbCollector(store, alerter),
     }
 
     # ── Wire event subscribers ────────────────────────────────────

@@ -82,6 +82,49 @@ st.set_page_config(
 )
 
 
+# ─── Chart UX config ────────────────────────────────────────────
+# Applied to every Plotly chart so trackpad scrolling doesn't
+# accidentally zoom, and the mode bar doesn't permanently clutter.
+_PLOTLY_CONFIG = {
+    "scrollZoom": False,            # no zoom on trackpad scroll
+    "displayModeBar": False,        # hide the hover toolbar entirely
+    "displaylogo": False,
+    "staticPlot": False,            # still allow hover tooltips
+}
+
+
+def _range_selector_xaxis():
+    """Shared rangeselector button strip for time-series charts."""
+    return dict(
+        rangeselector=dict(
+            buttons=[
+                dict(count=1, label="1M", step="month", stepmode="backward"),
+                dict(count=3, label="3M", step="month", stepmode="backward"),
+                dict(count=6, label="6M", step="month", stepmode="backward"),
+                dict(count=1, label="1Y", step="year", stepmode="backward"),
+                dict(step="all", label="ALL"),
+            ],
+            bgcolor="rgba(128,128,128,0.08)",
+            activecolor="rgba(70,130,180,0.6)",
+        ),
+    )
+
+
+def _default_range_last_months(x_series: pd.Series, months: int = 6) -> list:
+    """Initial x-axis range = last N months of data (user can still drag
+    left or click ALL to see full history)."""
+    if x_series.empty:
+        return None
+    try:
+        x_end = pd.to_datetime(x_series.max(), format="ISO8601", errors="coerce")
+    except Exception:
+        x_end = pd.to_datetime(x_series.max(), errors="coerce")
+    if pd.isna(x_end):
+        return None
+    x_start = x_end - pd.Timedelta(days=30 * months)
+    return [x_start, x_end]
+
+
 def _load(name: str) -> pd.DataFrame:
     p = DATA_DIR / f"{name}.parquet"
     if not p.exists():
@@ -152,6 +195,7 @@ nl = _load("net_liquidity").sort_values("as_of") if not _load("net_liquidity").e
 ms = _load("market_stress").sort_values("as_of_utc") if not _load("market_stress").empty else _load("market_stress")
 regime_df = _load("regime").sort_values("as_of") if not _load("regime").empty else _load("regime")
 adaptive_df = _load("adaptive_thresholds") if not _load("adaptive_thresholds").empty else _load("adaptive_thresholds")
+sofr_iorb = _load("sofr_iorb").sort_values("observation_date") if not _load("sofr_iorb").empty else _load("sofr_iorb")
 
 # ═══════════════════════ 🏷 Regime status strip ═══════════════════
 # Full-width regime indicator — appears above KPIs so users see
@@ -498,14 +542,23 @@ if not nl.empty:
             annotation_font_color=color,
             annotation_font_size=10,
         )
+    xaxis_dict = dict(
+        title="As-of date",
+        **_range_selector_xaxis(),
+    )
+    default_range = _default_range_last_months(nl_plot["as_of"], months=6)
+    if default_range is not None:
+        xaxis_dict["range"] = default_range
     fig.update_layout(
-        height=440,
-        xaxis_title="As-of date",
+        height=460,
+        xaxis=xaxis_dict,
         yaxis_title="Billion USD",
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
         hovermode="x unified",
+        dragmode=False,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config=_PLOTLY_CONFIG)
+    st.caption("💡 默认显示最近 6 个月。点上方 1M/3M/6M/1Y/ALL 切换窗口。鼠标悬停查看数值。")
 else:
     st.info("Net liquidity not yet computed (need TGA + RRP + Reserves snapshots).")
 
@@ -529,14 +582,74 @@ if not nl.empty:
         name="−TGA (drain)", stackgroup="neg", fill="tonexty",
         line=dict(color="#d62728")))
 
+    xaxis_dict = dict(
+        title="As-of date",
+        **_range_selector_xaxis(),
+    )
+    default_range = _default_range_last_months(nl_plot["as_of"], months=6)
+    if default_range is not None:
+        xaxis_dict["range"] = default_range
     fig.update_layout(
         height=420,
-        xaxis_title="As-of date",
+        xaxis=xaxis_dict,
         yaxis_title="Billion USD (signed)",
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
         hovermode="x unified",
+        dragmode=False,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config=_PLOTLY_CONFIG)
+
+# ═══════════════════════ SOFR − IORB spread ═══════════════════════
+st.subheader("⚡ SOFR − IORB 利差 — 最直接的准备金稀缺信号")
+st.caption(
+    "正值 = SOFR > IORB（银行宁可市场借也不靠 Fed 付息 → 稀缺）。"
+    "历史中位 ≈ −9 bp（正常银行有多余准备金）。2019-09-17 repo 危机当日 +50bp。"
+)
+
+if not sofr_iorb.empty:
+    si_plot = sofr_iorb.copy()
+    si_plot["date"] = pd.to_datetime(si_plot["observation_date"])
+    latest_si = si_plot.iloc[-1]
+    spread_emo = "🟢" if latest_si["spread_bp"] < 2 else (
+        "🟡" if latest_si["spread_bp"] < 5 else (
+            "🟠" if latest_si["spread_bp"] < 10 else "🔴"
+        )
+    )
+    st.markdown(
+        f"{spread_emo} **当前 spread: `{latest_si['spread_bp']:+.2f} bp`** "
+        f"(SOFR={latest_si['sofr_pct']:.4f}% IORB={latest_si['iorb_pct']:.4f}% · "
+        f"{latest_si['observation_date']})"
+    )
+    fig = go.Figure()
+    # threshold bands (above 0)
+    fig.add_hrect(y0=2, y1=5,   fillcolor="yellow", opacity=0.12, layer="below", line_width=0)
+    fig.add_hrect(y0=5, y1=10,  fillcolor="orange", opacity=0.15, layer="below", line_width=0)
+    fig.add_hrect(y0=10, y1=100, fillcolor="red",   opacity=0.18, layer="below", line_width=0)
+    fig.add_hline(y=0, line_dash="dot", line_color="gray", opacity=0.4)
+    fig.add_trace(go.Scatter(
+        x=si_plot["date"],
+        y=si_plot["spread_bp"],
+        mode="lines",
+        name="SOFR − IORB (bp)",
+        line=dict(width=2, color="#ff7f0e"),
+    ))
+    xaxis_dict = dict(
+        title="Date",
+        **_range_selector_xaxis(),
+    )
+    default_range = _default_range_last_months(si_plot["date"], months=6)
+    if default_range is not None:
+        xaxis_dict["range"] = default_range
+    fig.update_layout(
+        height=380,
+        xaxis=xaxis_dict,
+        yaxis_title="Spread (bp)",
+        hovermode="x unified",
+        dragmode=False,
+    )
+    st.plotly_chart(fig, use_container_width=True, config=_PLOTLY_CONFIG)
+else:
+    st.info("No SOFR-IORB data yet — collector polls daily at 15:30 ET.")
 
 # ═══════════════════════ Layer-2 Market Stress (yfinance) ═════════
 st.subheader("Layer-2 Market Stress (ETF + VIX basket, 1h z-score)")
@@ -585,8 +698,9 @@ if not ms.empty:
         hovermode="x unified",
         yaxis=dict(range=[min(-3, ms_recent["composite_stress_z"].min() - 0.5),
                           max(5, ms_recent["composite_stress_z"].max() + 0.5)]),
+        dragmode=False,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config=_PLOTLY_CONFIG)
     st.caption(
         f"Last 30 days · {len(ms_recent):,} hourly bars · "
         f"Basket: SPY / ^VIX / TLT / IEF / LQD / HYG (sign-adjusted so positive = stress)"
@@ -625,7 +739,7 @@ if proxy_files:
             yaxis_title="% change (normalized to window start)",
             legend=dict(orientation="h"),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, config=_PLOTLY_CONFIG)
         st.caption(f"Showing last 6h across {len(recent['symbol'].unique())} symbols, "
                    f"{len(recent):,} bars.")
 else:
