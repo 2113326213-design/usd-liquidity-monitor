@@ -151,6 +151,7 @@ reserves = _load("reserves").sort_values("poll_ts") if not _load("reserves").emp
 nl = _load("net_liquidity").sort_values("as_of") if not _load("net_liquidity").empty else _load("net_liquidity")
 ms = _load("market_stress").sort_values("as_of_utc") if not _load("market_stress").empty else _load("market_stress")
 regime_df = _load("regime").sort_values("as_of") if not _load("regime").empty else _load("regime")
+adaptive_df = _load("adaptive_thresholds") if not _load("adaptive_thresholds").empty else _load("adaptive_thresholds")
 
 # ═══════════════════════ 🏷 Regime status strip ═══════════════════
 # Full-width regime indicator — appears above KPIs so users see
@@ -194,6 +195,70 @@ if not regime_df.empty:
         f"rrp_rank={latest_regime['rrp_rank']:.2f})，"
         f"最接近 **{reg}** 原型"
     )
+
+    # ─── Adaptive thresholds panel (regime-conditional) ───
+    if not adaptive_df.empty:
+        with st.expander(
+            f"🎯 Regime-conditional 阈值 vs 静态阈值（当前 regime 建议用 **{reg.upper()}** 列）",
+            expanded=False,
+        ):
+            st.markdown(
+                "_动态阈值 = 历史上同一 regime 内该指标的分位数（MEDIUM=25% / HIGH=10% / CRITICAL=5%）。"
+                "下面是**观察版**——live alerter 还在用静态阈值。想切换告诉我。_"
+            )
+            static_values = {
+                "reserves": {
+                    "MEDIUM":   _s.reserves_medium_bn,
+                    "HIGH":     _s.reserves_high_bn,
+                    "CRITICAL": _s.reserves_critical_bn,
+                },
+                "rrp": {
+                    "MEDIUM":   _s.rrp_medium_bn,
+                    "HIGH":     _s.rrp_high_bn,
+                    "CRITICAL": _s.rrp_critical_bn,
+                },
+                "net_liq": {
+                    "MEDIUM":   _s.net_liq_medium_bn,
+                    "HIGH":     _s.net_liq_high_bn,
+                    "CRITICAL": _s.net_liq_critical_bn,
+                },
+            }
+            metric_labels = {
+                "reserves": "🏛 Reserves",
+                "rrp":      "🛋 ON RRP",
+                "net_liq":  "💧 Net Liquidity",
+            }
+            for metric_short in ["reserves", "rrp", "net_liq"]:
+                st.markdown(f"**{metric_labels[metric_short]}**")
+                rows = []
+                for tier in ["MEDIUM", "HIGH", "CRITICAL"]:
+                    row = {
+                        "Tier": tier,
+                        "Static": f"${static_values[metric_short][tier]:,.0f}",
+                    }
+                    for regime_name in ["abundant", "ample", "scarce", "crisis"]:
+                        mask = (
+                            (adaptive_df["metric"] == metric_short)
+                            & (adaptive_df["regime"] == regime_name)
+                            & (adaptive_df["tier"] == tier)
+                        )
+                        v = adaptive_df.loc[mask, "value"]
+                        if len(v) == 0 or pd.isna(v.iloc[0]):
+                            row[regime_name.capitalize()] = "—"
+                        else:
+                            col_name = regime_name.capitalize()
+                            # Highlight the current regime's column
+                            if regime_name == reg:
+                                row[col_name] = f"**${v.iloc[0]:,.0f}**"
+                            else:
+                                row[col_name] = f"${v.iloc[0]:,.0f}"
+                    rows.append(row)
+                st.table(pd.DataFrame(rows))
+            st.caption(
+                "粗体 = 当前 regime 的建议阈值。RRP 在 SCARCE/CRISIS regime 下阈值很低（历史上这些 regime 里 RRP 就已近零），"
+                "意味着 RRP 不是好的 scarce 诊断——这是动态阈值暴露出的一个真正 finding。"
+            )
+
     st.divider()
 
 # ═══════════════════════ Top row: KPI cards ═══════════════════════
