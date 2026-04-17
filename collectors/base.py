@@ -50,6 +50,18 @@ class Collector(ABC):
             logger.debug(f"[{self.name}] unchanged")
             return
 
+        # Sanity gate — if payload fails plausibility bounds, skip BOTH
+        # the parquet write and on_new_data. This prevents a single
+        # garbage value from upstream (e.g. Fiscal Data returning 0 for
+        # TGA during maintenance, or FRED returning '.') from polluting
+        # the historical series and firing a flurry of false alerts.
+        if not self.validate(payload):
+            logger.error(
+                f"[{self.name}] validation failed for {payload} — "
+                "skipping write + alerts"
+            )
+            return
+
         self.store.write_snapshot(self.name, payload, h)
         logger.info(f"[{self.name}] updated: {payload}")
 
@@ -57,6 +69,14 @@ class Collector(ABC):
             await self.on_new_data(payload)
         except Exception as e:
             logger.exception(f"[{self.name}] on_new_data hook failed: {e}")
+
+    def validate(self, payload: dict) -> bool:
+        """Hard-bound sanity check. Override in subclass to gate writes
+        on plausibility. Default permissive (returns True).
+
+        Implementations should call alerts.sanity.sanity_check on the
+        numeric fields they produce."""
+        return True
 
     async def on_new_data(self, payload: dict) -> None:
         """Override in subclass to fire alerts or trigger downstream."""

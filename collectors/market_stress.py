@@ -126,6 +126,10 @@ class MarketStressCollector(Collector):
             "tickers_stress_aligned": stress_aligned,
         }
 
+    def validate(self, payload: dict) -> bool:
+        from ..alerts.sanity import sanity_check
+        return sanity_check("composite_stress_z", payload.get("composite_stress_z"))
+
     async def on_new_data(self, payload: dict) -> None:
         composite = float(payload["composite_stress_z"])
         aligned = int(payload["tickers_stress_aligned"])
