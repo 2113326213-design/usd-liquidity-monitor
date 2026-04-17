@@ -20,6 +20,10 @@
         <string>--server.address=127.0.0.1</string>
         <string>--server.port=8501</string>
         <string>--browser.gatherUsageStats=false</string>
+        <!-- Hide Streamlit's built-in "Deploy" / hamburger-menu buttons.
+             This dashboard is single-user local; the deploy button only
+             confuses users into accidentally opening the Cloud modal. -->
+        <string>--client.toolbarMode=minimal</string>
     </array>
 
     <key>WorkingDirectory</key>
