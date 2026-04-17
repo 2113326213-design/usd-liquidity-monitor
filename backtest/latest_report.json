@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-04-17T10:50:10.990648+00:00",
+  "generated_utc": "2026-04-17T10:56:54.007577+00:00",
   "window": {
     "start": "2018-04-17",
     "end": "2026-04-16"
@@ -135,7 +135,7 @@
     },
     "rrp_MEDIUM": {
       "threshold": "rrp < $200bn",
-      "events": 19,
+      "events": 17,
       "event_dates": [
         "2025-03-24",
         "2025-04-03",
@@ -150,31 +150,31 @@
       ],
       "stats": {
         "5d": {
-          "n": 19,
-          "mean": 0.63,
+          "n": 17,
+          "mean": 0.61,
           "median": 1.07,
-          "p10": -2.32,
-          "hit_rate_down": 0.263
+          "p10": -2.38,
+          "hit_rate_down": 0.235
         },
         "10d": {
-          "n": 19,
-          "mean": 0.97,
+          "n": 17,
+          "mean": 0.96,
           "median": 1.85,
-          "p10": -2.1,
-          "hit_rate_down": 0.263
+          "p10": -2.29,
+          "hit_rate_down": 0.235
         },
         "20d": {
-          "n": 19,
-          "mean": 2.08,
+          "n": 17,
+          "mean": 1.98,
           "median": 3.3,
-          "p10": -1.17,
-          "hit_rate_down": 0.158
+          "p10": -1.93,
+          "hit_rate_down": 0.176
         }
       }
     },
     "rrp_HIGH": {
       "threshold": "rrp < $100bn",
-      "events": 16,
+      "events": 14,
       "event_dates": [
         "2025-01-21",
         "2025-01-27",
@@ -189,34 +189,32 @@
       ],
       "stats": {
         "5d": {
-          "n": 16,
-          "mean": 0.77,
+          "n": 14,
+          "mean": 0.75,
           "median": 0.88,
-          "p10": -0.62,
-          "hit_rate_down": 0.312
+          "p10": -0.47,
+          "hit_rate_down": 0.286
         },
         "10d": {
-          "n": 16,
-          "mean": 1.4,
+          "n": 14,
+          "mean": 1.45,
           "median": 1.51,
-          "p10": -0.41,
-          "hit_rate_down": 0.25
+          "p10": -0.36,
+          "hit_rate_down": 0.214
         },
         "20d": {
-          "n": 16,
-          "mean": 2.24,
-          "median": 2.53,
-          "p10": -2.18,
-          "hit_rate_down": 0.25
+          "n": 14,
+          "mean": 2.14,
+          "median": 2.15,
+          "p10": -2.71,
+          "hit_rate_down": 0.286
         }
       }
     },
     "rrp_CRITICAL": {
       "threshold": "rrp < $50bn",
-      "events": 7,
+      "events": 5,
       "event_dates": [
-        "2024-05-08",
-        "2024-10-16",
         "2025-08-14",
         "2025-09-02",
         "2025-09-30",
@@ -225,56 +223,55 @@
       ],
       "stats": {
         "5d": {
-          "n": 7,
-          "mean": 0.51,
+          "n": 5,
+          "mean": 0.37,
           "median": 0.44,
-          "p10": -1.03,
-          "hit_rate_down": 0.429
+          "p10": -0.99,
+          "hit_rate_down": 0.4
         },
         "10d": {
-          "n": 7,
-          "mean": 0.54,
+          "n": 5,
+          "mean": 0.35,
           "median": 0.62,
-          "p10": -1.39,
-          "hit_rate_down": 0.429
+          "p10": -1.79,
+          "hit_rate_down": 0.4
         },
         "20d": {
-          "n": 7,
-          "mean": 2.37,
-          "median": 2.56,
-          "p10": 0.97,
-          "hit_rate_down": 0.143
+          "n": 5,
+          "mean": 2.13,
+          "median": 1.93,
+          "p10": 0.56,
+          "hit_rate_down": 0.2
         }
       }
     },
     "netliq_MEDIUM": {
       "threshold": "netliq < $2400bn",
-      "events": 3,
+      "events": 2,
       "event_dates": [
-        "2024-10-16",
         "2025-09-15",
         "2026-04-13"
       ],
       "stats": {
         "5d": {
-          "n": 2,
-          "mean": 0.08,
-          "median": 0.08,
-          "p10": -0.58,
-          "hit_rate_down": 0.5
+          "n": 1,
+          "mean": 0.9,
+          "median": 0.9,
+          "p10": 0.9,
+          "hit_rate_down": 0.0
         },
         "10d": {
-          "n": 2,
-          "mean": 0.01,
-          "median": 0.01,
-          "p10": -0.31,
-          "hit_rate_down": 0.5
+          "n": 1,
+          "mean": 0.42,
+          "median": 0.42,
+          "p10": 0.42,
+          "hit_rate_down": 0.0
         },
         "20d": {
-          "n": 2,
-          "mean": 1.44,
-          "median": 1.44,
-          "p10": 0.55,
+          "n": 1,
+          "mean": 0.32,
+          "median": 0.32,
+          "p10": 0.32,
           "hit_rate_down": 0.0
         }
       }

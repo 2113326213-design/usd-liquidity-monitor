@@ -340,9 +340,17 @@ async def backfill_rrp() -> None:
     if not rows:
         print("[rrp] no data")
         return
+    # Some dates have MULTIPLE Reverse Repo ops (standard ON RRP for MMFs
+    # + FIMA RRP for foreign central banks; both satisfy term==Overnight).
+    # The previous dedup `keep="last"` was order-dependent and silently
+    # picked the smaller FIMA op on some dates, understating ON RRP by
+    # hundreds of billions. Fix: sort by amount descending, keep LARGEST
+    # per date — which is always the standard ON RRP we actually want
+    # for liquidity monitoring.
     out = (
         pd.DataFrame(rows)
-        .drop_duplicates(subset=["operation_date"], keep="last")
+        .sort_values(["operation_date", "total_accepted_bn"], ascending=[True, False])
+        .drop_duplicates(subset=["operation_date"], keep="first")
         .sort_values("operation_date")
         .reset_index(drop=True)
     )

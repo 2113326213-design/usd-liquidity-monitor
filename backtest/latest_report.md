@@ -1,6 +1,6 @@
 # Walk-forward Validation Report
 
-_Generated: 2026-04-17T10:50:10.990648+00:00_
+_Generated: 2026-04-17T10:56:54.007577+00:00_
 _SPY window: 2018-04-17 → 2026-04-16_
 
 ## ⚠️ Read this first
@@ -62,47 +62,47 @@ portfolios typically see 1.5-2.5× the drawdown.
 
 ### rrp_MEDIUM
 - **Threshold**: `rrp < $200bn`
-- **Historical events**: **19**
+- **Historical events**: **17**
 - Event dates: `2025-03-24, 2025-04-03, 2025-05-01, 2025-06-02, 2025-06-12, 2025-06-20, 2025-07-10, 2025-07-15, 2025-07-22, 2025-08-01`
 
 | Horizon | N | Mean % | Median % | 10th pct % | P(down) | vs baseline |
 |---|---|---|---|---|---|---|
-| 5d | 19 | +0.63 | +1.07 | -2.32 | 26.3% | -13.1 pp |
-| 10d | 19 | +0.97 | +1.85 | -2.10 | 26.3% | -9.3 pp |
-| 20d | 19 | +2.08 | +3.30 | -1.17 | 15.8% | -16.4 pp |
+| 5d | 17 | +0.61 | +1.07 | -2.38 | 23.5% | -15.9 pp |
+| 10d | 17 | +0.96 | +1.85 | -2.29 | 23.5% | -12.1 pp |
+| 20d | 17 | +1.98 | +3.30 | -1.93 | 17.6% | -14.6 pp |
 
 ### rrp_HIGH
 - **Threshold**: `rrp < $100bn`
-- **Historical events**: **16**
+- **Historical events**: **14**
 - Event dates: `2025-01-21, 2025-01-27, 2025-02-03, 2025-03-17, 2025-04-11, 2025-04-15, 2025-04-25, 2025-08-01, 2025-08-05, 2026-01-02`
 
 | Horizon | N | Mean % | Median % | 10th pct % | P(down) | vs baseline |
 |---|---|---|---|---|---|---|
-| 5d | 16 | +0.77 | +0.88 | -0.62 | 31.2% | -8.2 pp |
-| 10d | 16 | +1.40 | +1.51 | -0.41 | 25.0% | -10.6 pp |
-| 20d | 16 | +2.24 | +2.53 | -2.18 | 25.0% | -7.2 pp |
+| 5d | 14 | +0.75 | +0.88 | -0.47 | 28.6% | -10.8 pp |
+| 10d | 14 | +1.45 | +1.51 | -0.36 | 21.4% | -14.2 pp |
+| 20d | 14 | +2.14 | +2.15 | -2.71 | 28.6% | -3.6 pp |
 
 ### rrp_CRITICAL
 - **Threshold**: `rrp < $50bn`
-- **Historical events**: **7**
-- Event dates: `2024-05-08, 2024-10-16, 2025-08-14, 2025-09-02, 2025-09-30, 2025-11-03, 2026-01-02`
+- **Historical events**: **5**
+- Event dates: `2025-08-14, 2025-09-02, 2025-09-30, 2025-11-03, 2026-01-02`
 
 | Horizon | N | Mean % | Median % | 10th pct % | P(down) | vs baseline |
 |---|---|---|---|---|---|---|
-| 5d | 7 | +0.51 | +0.44 | -1.03 | 42.9% | +3.5 pp |
-| 10d | 7 | +0.54 | +0.62 | -1.39 | 42.9% | +7.3 pp |
-| 20d | 7 | +2.37 | +2.56 | +0.97 | 14.3% | -17.9 pp |
+| 5d | 5 | +0.37 | +0.44 | -0.99 | 40.0% | +0.6 pp |
+| 10d | 5 | +0.35 | +0.62 | -1.79 | 40.0% | +4.4 pp |
+| 20d | 5 | +2.13 | +1.93 | +0.56 | 20.0% | -12.2 pp |
 
 ### netliq_MEDIUM
 - **Threshold**: `netliq < $2400bn`
-- **Historical events**: **3**
-- Event dates: `2024-10-16, 2025-09-15, 2026-04-13`
+- **Historical events**: **2**
+- Event dates: `2025-09-15, 2026-04-13`
 
 | Horizon | N | Mean % | Median % | 10th pct % | P(down) | vs baseline |
 |---|---|---|---|---|---|---|
-| 5d | 2 | +0.08 | +0.08 | -0.58 | 50.0% | +10.6 pp |
-| 10d | 2 | +0.01 | +0.01 | -0.31 | 50.0% | +14.4 pp |
-| 20d | 2 | +1.44 | +1.44 | +0.55 | 0.0% | -32.2 pp |
+| 5d | 1 | +0.90 | +0.90 | +0.90 | 0.0% | -39.4 pp |
+| 10d | 1 | +0.42 | +0.42 | +0.42 | 0.0% | -35.6 pp |
+| 20d | 1 | +0.32 | +0.32 | +0.32 | 0.0% | -32.2 pp |
 
 ### netliq_HIGH
 - **Threshold**: `netliq < $2200bn`
@@ -238,9 +238,9 @@ portfolios typically see 1.5-2.5× the drawdown.
 
 ## 🎯 Key question: does the playbook have data support?
 
-- **MEDIUM** (playbook: 减仓 15%) — total events across structural alerts: 55. Avg 10d P(SPY down): 33.2% (baseline: 35.6%). Verdict: ❌ no edge
-- **HIGH** (playbook: 减仓 30%) — total events across structural alerts: 42. Avg 10d P(SPY down): 38.4% (baseline: 35.6%). Verdict: 🟡 marginal
-- **CRITICAL** (playbook: 减仓 60%) — total events across structural alerts: 19. Avg 10d P(SPY down): 47.6% (baseline: 35.6%). Verdict: ✅ signal present
+- **MEDIUM** (playbook: 减仓 15%) — total events across structural alerts: 52. Avg 10d P(SPY down): 20.1% (baseline: 35.6%). Verdict: ❌ no edge
+- **HIGH** (playbook: 减仓 30%) — total events across structural alerts: 40. Avg 10d P(SPY down): 37.5% (baseline: 35.6%). Verdict: 🟡 marginal
+- **CRITICAL** (playbook: 减仓 60%) — total events across structural alerts: 17. Avg 10d P(SPY down): 46.7% (baseline: 35.6%). Verdict: ✅ signal present
 
 ---
 

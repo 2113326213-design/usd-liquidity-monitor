@@ -67,8 +67,20 @@ class RRPCollector(Collector):
         if not on_rrp:
             logger.debug("[rrp] no Overnight Reverse Repo in last 2 weeks")
             return None
-        ops_sorted = sorted(on_rrp, key=lambda x: x.get("operationDate", ""), reverse=True)
-        latest = ops_sorted[0]
+
+        # Pick the most recent date, then within that date the LARGEST
+        # amount. This matters because some dates have both Standard ON
+        # RRP (MMFs, hundreds of billions) and FIMA RRP (foreign central
+        # banks, hundreds of millions) on the same day. We want the
+        # standard one for liquidity monitoring. Previous "first by
+        # operation_date desc" was order-dependent and on some dates
+        # happened to return the small FIMA op.
+        latest_date = max(op.get("operationDate", "") for op in on_rrp)
+        same_day = [op for op in on_rrp if op.get("operationDate") == latest_date]
+        latest = max(
+            same_day,
+            key=lambda x: float(x.get("totalAmtAccepted", 0) or 0),
+        )
 
         # Extract award rate from details if present
         details = latest.get("details", [])
