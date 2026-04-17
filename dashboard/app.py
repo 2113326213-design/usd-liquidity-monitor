@@ -20,13 +20,35 @@ from streamlit_autorefresh import st_autorefresh
 DATA_DIR = (Path(__file__).parent.parent / "data" / "raw").resolve()
 
 
-# Threshold tiers — must stay in sync with config.py defaults. If you
-# tune the thresholds in .env, update these too so the dashboard badges
-# match the alert levels the monitor is firing on.
-RESERVES_TIERS = {"medium": 3200.0, "high": 3000.0, "critical": 2800.0}
-RRP_TIERS      = {"medium": 200.0,  "high": 100.0,  "critical": 50.0}
-NET_LIQ_TIERS  = {"medium": 2400.0, "high": 2200.0, "critical": 2000.0}
-MARKET_Z_TIERS = {"medium": 2.0,    "high": 3.0,    "critical": 4.0}
+# Pull tier thresholds from the same config the monitor / alerter use,
+# so .env overrides stay in sync with dashboard badges. The package root
+# is one level up from dashboard/.
+import sys as _sys
+_PKG_ROOT = Path(__file__).parent.parent.parent
+if str(_PKG_ROOT) not in _sys.path:
+    _sys.path.insert(0, str(_PKG_ROOT))
+from usd_liquidity_monitor.config import settings as _s
+
+RESERVES_TIERS = {
+    "medium": _s.reserves_medium_bn,
+    "high":   _s.reserves_high_bn,
+    "critical": _s.reserves_critical_bn,
+}
+RRP_TIERS = {
+    "medium": _s.rrp_medium_bn,
+    "high":   _s.rrp_high_bn,
+    "critical": _s.rrp_critical_bn,
+}
+NET_LIQ_TIERS = {
+    "medium": _s.net_liq_medium_bn,
+    "high":   _s.net_liq_high_bn,
+    "critical": _s.net_liq_critical_bn,
+}
+MARKET_Z_TIERS = {
+    "medium": _s.market_stress_medium_z,
+    "high":   _s.market_stress_high_z,
+    "critical": _s.market_stress_critical_z,
+}
 
 
 def regime_emoji(value, tiers, direction="below"):
@@ -235,41 +257,51 @@ with c5:
 def _build_current_state() -> str:
     lines: list[str] = []
 
-    # Reserves
+    # Reserves — explicit per-tier handling; ⚪ (null/unparseable) falls
+    # through to the "数据缺失" branch rather than being mis-reported as
+    # CRITICAL.
     r_val, _ = _latest_delta(reserves, "reserves_bn")
     if r_val is not None:
         emo = regime_emoji(r_val, RESERVES_TIERS, "below")
         if emo == "🟢":
-            lines.append(f"{emo} **银行准备金** 在充裕区（${r_val:,.0f} bn > $3.2T）")
+            lines.append(f"{emo} **银行准备金** 在充裕区（${r_val:,.0f} bn > ${RESERVES_TIERS['medium']:,.0f}bn）")
         elif emo == "🟡":
             lines.append(
-                f"{emo} **银行准备金** 已跌破 MEDIUM 线（${r_val:,.0f} bn < $3.2T）"
+                f"{emo} **银行准备金** 已跌破 MEDIUM 线（${r_val:,.0f} bn < ${RESERVES_TIERS['medium']:,.0f}bn）"
                 " — 压力累积阶段"
             )
         elif emo == "🟠":
             lines.append(
-                f"{emo} **银行准备金** 接近 Fed 警戒线（${r_val:,.0f} bn < $3.0T）"
+                f"{emo} **银行准备金** 接近 Fed 警戒线（${r_val:,.0f} bn < ${RESERVES_TIERS['high']:,.0f}bn）"
                 " — HIGH 告警触发"
             )
-        else:
+        elif emo == "🔴":
             lines.append(
-                f"{emo} **银行准备金** 危机级别（${r_val:,.0f} bn < $2.8T）"
+                f"{emo} **银行准备金** 危机级别（${r_val:,.0f} bn < ${RESERVES_TIERS['critical']:,.0f}bn）"
                 " — 2019 repo 复刻风险"
             )
+        else:  # ⚪ — null / unparseable
+            lines.append(f"⚪ **银行准备金** 数据缺失")
 
     # ON RRP cushion
     rrp_val, _ = _latest_delta(rrp, "total_accepted_bn")
     if rrp_val is not None:
         emo = regime_emoji(rrp_val, RRP_TIERS, "below")
-        if emo in ("🟠", "🔴"):
+        if emo == "🔴":
             lines.append(
                 f"{emo} **RRP 缓冲垫** 基本耗尽（${rrp_val:,.1f} bn）"
                 " — 下次 Treasury 抽水直接命中准备金"
             )
+        elif emo == "🟠":
+            lines.append(
+                f"{emo} **RRP 缓冲垫** 非常薄（${rrp_val:,.1f} bn < ${RRP_TIERS['high']:,.0f}bn）"
+            )
         elif emo == "🟡":
             lines.append(f"{emo} **RRP 缓冲垫** 薄（${rrp_val:,.0f} bn）")
-        else:
+        elif emo == "🟢":
             lines.append(f"{emo} **RRP 缓冲垫** 充足（${rrp_val:,.0f} bn）")
+        else:  # ⚪
+            lines.append(f"⚪ **RRP 缓冲垫** 数据缺失")
 
     # Net Liquidity
     nl_val, nl_delta = _latest_delta(nl, "net_liquidity_bn")

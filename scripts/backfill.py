@@ -190,11 +190,58 @@ async def _ny_fed_rp_chunked(
 
 
 async def backfill_rrp() -> None:
-    ops = await _ny_fed_rp_chunked(
+    # Two-endpoint merge strategy for maximum data quality:
+    #   1. reverserepo/all/results/last/500.json — rich schema including
+    #      `term` field, covers most recent ~500 ops (≈ 2 years). Lets us
+    #      explicitly verify each op is Overnight. NY Fed caps N at 500
+    #      (1000 and 1500 return HTTP 400).
+    #   2. reverserepo/propositions/search.json?startDate=..&endDate=.. —
+    #      only endpoint supporting multi-year date ranges, but minimal
+    #      schema (no `term`). Used for the older tail. Defensive filter
+    #      treats missing `term` as Overnight — matches historical
+    #      reality (Fed did not conduct Term RRP in 2021-2026).
+    # Dedup by operationId; rich endpoint wins on overlap. Empirically
+    # the rich endpoint also catches ~5 recent ops that propositions/
+    # search.json misses, so the merge strictly dominates either alone.
+    from ..collectors.rrp import filter_on_rrp
+
+    # (1) rich endpoint — verified Overnight
+    rich_ops: list[dict] = []
+    try:
+        async with httpx.AsyncClient(timeout=60) as c:
+            r = await c.get(
+                "https://markets.newyorkfed.org/api/rp/reverserepo/all/results/last/500.json"
+            )
+            r.raise_for_status()
+        rich_ops = r.json().get("repo", {}).get("operations", [])
+    except Exception as exc:
+        print(f"[rrp] rich endpoint failed: {exc}")
+
+    # (2) date-range endpoint for older data
+    date_ops = await _ny_fed_rp_chunked(
         "reverserepo/propositions/search.json",
         START_DATE,
         END_DATE,
         "REVERSE REPO",
+    )
+
+    rich_filtered = filter_on_rrp(rich_ops)
+    date_filtered = filter_on_rrp(date_ops)
+
+    # Dedup by operationId; rich takes precedence for overlapping IDs.
+    by_id: dict[str, dict] = {}
+    for op in date_filtered:
+        oid = op.get("operationId")
+        if oid:
+            by_id[oid] = op
+    for op in rich_filtered:
+        oid = op.get("operationId")
+        if oid:
+            by_id[oid] = op  # overwrite with rich-schema version
+    ops = list(by_id.values())
+    print(
+        f"[rrp]   rich verified-Overnight: {len(rich_filtered)}, "
+        f"date-range: {len(date_filtered)}, merged unique: {len(ops)}"
     )
     rows: list[dict] = []
     for op in ops:

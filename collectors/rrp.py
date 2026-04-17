@@ -2,15 +2,21 @@
 ON RRP (Overnight Reverse Repo) collector.
 
 Source: NY Fed Markets API
-Endpoint: https://markets.newyorkfed.org/api/rp/reverserepo/propositions/search.json
-         (also: .../api/rp/all/all/results/lastTwoWeeks.json for combined repo+reverse)
+Endpoint: https://markets.newyorkfed.org/api/rp/reverserepo/all/results/lastTwoWeeks.json
+
+Why this endpoint:
+  The older `reverserepo/propositions/search.json` endpoint returns only a
+  minimal schema (operationType / operationDate / totalAmtAccepted / note /
+  operationId) with no `term` field, making it impossible to distinguish
+  Overnight RRP from Term RRP or FIMA RRP at the API level. The
+  `all/results/lastTwoWeeks.json` endpoint returns the full schema including
+  `term: "Overnight"|"Term"` and `termCalenderDays`, which lets us filter
+  correctly.
 
 Operation cadence: once per business day, operation window roughly 12:45–13:15 ET,
 results published immediately after close (usually by 13:20 ET).
 """
 from __future__ import annotations
-
-from datetime import datetime, timedelta, timezone
 
 import httpx
 from loguru import logger
@@ -18,19 +24,38 @@ from loguru import logger
 from .base import Collector
 
 
+def filter_on_rrp(ops: list[dict]) -> list[dict]:
+    """Keep only Overnight Reverse Repo operations.
+
+    Exclude:
+      * Repo operations (operationType != "Reverse Repo")
+      * Term RRP (term != "Overnight" — multi-day tenors)
+      * FIMA RRP (foreign official RRP, has its own operationType distinction)
+
+    Defensive behaviour when the `term` field is missing from an older-schema
+    response: treat the op as Overnight (true for all observed 2021-2026
+    Reverse Repo ops — Fed has not conducted Term RRPs in this regime).
+    """
+    out: list[dict] = []
+    for o in ops:
+        if o.get("operationType", "").strip().upper() != "REVERSE REPO":
+            continue
+        term = o.get("term")
+        if term is not None and term.strip().upper() != "OVERNIGHT":
+            continue  # Term RRP — skip
+        out.append(o)
+    return out
+
+
 class RRPCollector(Collector):
     name = "rrp"
-    URL = "https://markets.newyorkfed.org/api/rp/reverserepo/propositions/search.json"
+    URL = (
+        "https://markets.newyorkfed.org/api/rp/reverserepo/all/results/lastTwoWeeks.json"
+    )
 
     async def fetch(self) -> dict | None:
-        # Pull last 14 days to be safe; we take the latest overnight op
-        now = datetime.now(timezone.utc)
-        start = (now - timedelta(days=14)).strftime("%Y-%m-%d")
-        end = now.strftime("%Y-%m-%d")
-        params = {"startDate": start, "endDate": end}
-
         async with httpx.AsyncClient(timeout=15) as c:
-            r = await c.get(self.URL, params=params)
+            r = await c.get(self.URL)
             r.raise_for_status()
 
         data = r.json()
@@ -38,14 +63,11 @@ class RRPCollector(Collector):
         if not ops:
             return None
 
-        # Filter to Overnight Reverse Repo only (exclude term or FIMA)
-        on_rrp = [
-            o for o in ops
-            if o.get("operationType", "").upper() == "REVERSE REPO"
-            and "OVERNIGHT" in o.get("operationDate", "").upper() + o.get("operationTypeMisc", "").upper()
-            or o.get("operationType", "").upper() == "REVERSE REPO"  # fallback
-        ]
-        ops_sorted = sorted(on_rrp or ops, key=lambda x: x.get("operationDate", ""), reverse=True)
+        on_rrp = filter_on_rrp(ops)
+        if not on_rrp:
+            logger.debug("[rrp] no Overnight Reverse Repo in last 2 weeks")
+            return None
+        ops_sorted = sorted(on_rrp, key=lambda x: x.get("operationDate", ""), reverse=True)
         latest = ops_sorted[0]
 
         # Extract award rate from details if present
@@ -64,7 +86,14 @@ class RRPCollector(Collector):
             "operation_date": latest.get("operationDate"),
             "operation_type": latest.get("operationType"),
             "total_accepted_bn": total_accepted_bn,
-            "num_submissions": latest.get("totalAmtSubmittedPositions"),
+            # The lastTwoWeeks endpoint exposes participatingCpty (count of
+            # counterparties submitting bids). Older propositions/search.json
+            # returned totalAmtSubmittedPositions — fall back to it if the
+            # new field isn't present.
+            "num_submissions": (
+                latest.get("participatingCpty")
+                or latest.get("totalAmtSubmittedPositions")
+            ),
             "rate": rate,
         }
 
