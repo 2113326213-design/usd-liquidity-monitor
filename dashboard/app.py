@@ -192,7 +192,10 @@ st.subheader("Layer-2 Market Stress (ETF + VIX basket, 1h z-score)")
 
 if not ms.empty:
     ms_plot = ms.copy()
-    ms_plot["ts"] = pd.to_datetime(ms_plot["as_of_utc"])
+    # format="ISO8601" handles mixed-precision timestamps (backfilled rows
+    # have no microseconds, live-poll rows do). Without it pandas 2.2+
+    # picks a format from the first row and rejects the rest.
+    ms_plot["ts"] = pd.to_datetime(ms_plot["as_of_utc"], format="ISO8601")
     # Show last 30 days by default — full 2y history is too dense
     cutoff = ms_plot["ts"].max() - pd.Timedelta(days=30)
     ms_recent = ms_plot[ms_plot["ts"] > cutoff].copy()
