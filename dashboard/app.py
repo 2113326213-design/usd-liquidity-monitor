@@ -168,6 +168,126 @@ st.caption(
     f"| Auto-refresh: 60s"
 )
 
+# ═══════════════════════ Data load ════════════════════════════════
+# Moved above the summary panel so _daily_summary() has data available.
+tga = _load("tga").sort_values("poll_ts") if not _load("tga").empty else _load("tga")
+rrp = _load("rrp").sort_values("poll_ts") if not _load("rrp").empty else _load("rrp")
+srp = _load("srp").sort_values("poll_ts") if not _load("srp").empty else _load("srp")
+reserves = _load("reserves").sort_values("poll_ts") if not _load("reserves").empty else _load("reserves")
+nl = _load("net_liquidity").sort_values("as_of") if not _load("net_liquidity").empty else _load("net_liquidity")
+ms = _load("market_stress").sort_values("as_of_utc") if not _load("market_stress").empty else _load("market_stress")
+regime_df = _load("regime").sort_values("as_of") if not _load("regime").empty else _load("regime")
+adaptive_df = _load("adaptive_thresholds") if not _load("adaptive_thresholds").empty else _load("adaptive_thresholds")
+sofr_iorb = _load("sofr_iorb").sort_values("observation_date") if not _load("sofr_iorb").empty else _load("sofr_iorb")
+fed_reaction = _load("fed_reaction") if not _load("fed_reaction").empty else _load("fed_reaction")
+
+# ═══════════════════════ 🏠 今日 5 秒摘要 ═══════════════════════════
+# The ONLY panel a daily user needs to read. Everything below is
+# reference material, advanced analysis, and raw-data drill-down
+# that you consult when curious — not when checking "is today safe".
+def _daily_summary() -> None:
+    """Compose a plain-language status line from fed_reaction + regime
+    + net_liquidity + recent alerts. Single panel, no interaction."""
+    # Load the latest row from each derived source. Each check is
+    # None-safe so an empty parquet just degrades gracefully.
+    fed_latest  = fed_reaction.iloc[-1] if not fed_reaction.empty else None
+    regime_latest = regime_df.iloc[-1] if not regime_df.empty else None
+    nl_latest     = nl.iloc[-1] if not nl.empty else None
+    srp_latest    = srp.iloc[-1] if not srp.empty else None
+
+    # ── System status badge ──
+    # Logic: most severe signal wins.
+    p_fed = float(fed_latest["p_5d"]) if fed_latest is not None else 0.0
+    srp_active = (
+        srp_latest is not None
+        and float(srp_latest.get("total_accepted_bn", 0) or 0) > 0
+    )
+    reg = str(regime_latest["regime_hard"]) if regime_latest is not None else "unknown"
+    net_liq_val = float(nl_latest["net_liquidity_bn"]) if nl_latest is not None else None
+
+    if srp_active or p_fed >= 0.70 or (net_liq_val and net_liq_val < NET_LIQ_TIERS["critical"]):
+        status_emoji = "🔴"
+        status_word = "严重告警"
+        status_desc = "Fed 可能正在救市 / 或结构性危险水位"
+    elif p_fed >= 0.40 or (net_liq_val and net_liq_val < NET_LIQ_TIERS["high"]):
+        status_emoji = "🟠"
+        status_word = "结构性压力"
+        status_desc = "Fed 中概率会动 / 或水位已在 HIGH 阈值以下"
+    elif reg in ("scarce", "crisis") or (net_liq_val and net_liq_val < NET_LIQ_TIERS["medium"]):
+        status_emoji = "🟡"
+        status_word = "水位偏低"
+        status_desc = f"处在 {reg} regime，压力累积但未突破"
+    else:
+        status_emoji = "🟢"
+        status_word = "正常"
+        status_desc = "Fed 基本不会动，市场水位在充裕区"
+
+    # ── Action recommendation ──
+    # If Fed reaction has a non-baseline rule, quote it. Else benign.
+    if fed_latest is not None and str(fed_latest["top_rule"]) != "BASELINE":
+        action_lines = [
+            f"触发规则：**{fed_latest['top_rule_label']}**",
+            f"建议：按 playbook 执行（级别 = {fed_latest['top_rule']}），"
+            f"但因 Fed 有 {p_fed:.0%} 概率 5 天内干预——**对冲可以适度打折**",
+        ]
+    elif net_liq_val and net_liq_val < NET_LIQ_TIERS["medium"]:
+        action_lines = [
+            f"综合水位 ${net_liq_val:,.0f} bn，**已跌破 MEDIUM 阈值 "
+            f"${NET_LIQ_TIERS['medium']:,.0f} bn**。",
+            "建议：主动减仓 15%，买入小仓位 SPY 45 天 ATM put 对冲 10% 敞口。"
+            "3 天后复查。",
+        ]
+    else:
+        action_lines = [
+            "**没有新告警**。维持现有仓位。",
+            "如果你有新增资金想入场：当前 regime 稀缺，不建议一次性满仓——分 3 次加码。",
+        ]
+
+    # ── Next FOMC event ──
+    # Use absolute import: Streamlit runs app.py as a script, not a module,
+    # so relative imports fail. _PKG_ROOT is already on sys.path from
+    # earlier config-import setup.
+    from usd_liquidity_monitor.state.fed_reaction import days_until_next_fomc
+    fomc_days = days_until_next_fomc()
+    fomc_line = (
+        f"⏳ 下次 FOMC 会议：**{fomc_days} 天后**"
+        if fomc_days is not None else "⏳ FOMC 日历已过期，更新 FOMC_DATES"
+    )
+
+    # ── Render ──
+    st.markdown(
+        f"""
+### 🏠 今日 5 秒摘要
+
+**{status_emoji} 系统状态：{status_word}** — {status_desc}
+"""
+    )
+    if net_liq_val is not None:
+        distance_to_high = net_liq_val - NET_LIQ_TIERS["high"]
+        st.markdown(
+            f"**💧 综合水位：${net_liq_val:,.0f} bn**（距 HIGH 阈值"
+            f" ${NET_LIQ_TIERS['high']:,.0f}bn 还有 {distance_to_high:+.0f} bn）"
+        )
+    if fed_latest is not None:
+        st.markdown(f"**🏛 Fed 5 日内干预概率：{p_fed:.0%}**")
+    st.markdown("**📋 今日建议：**")
+    for line in action_lines:
+        st.markdown(f"- {line}")
+    st.markdown(fomc_line)
+    st.caption(
+        "💡 **日常只需读这一块**。"
+        "想深入查看 5 年历史曲线、Fed 反应规则细节、adaptive 阈值对比等 → 往下滚动。"
+    )
+    st.divider()
+
+
+# Only render the summary if we have enough data to populate it.
+try:
+    _daily_summary()
+except Exception as e:
+    st.warning(f"摘要生成失败：{e}. 往下滚动看原始数据。")
+
+
 # ═══════════════════════ 📖 Reading guide (collapsible) ═══════════
 with st.expander("📖 怎么读这些数据 · How to read this dashboard", expanded=False):
     st.markdown(
@@ -200,18 +320,6 @@ with st.expander("📖 怎么读这些数据 · How to read this dashboard", exp
 这不是投资建议。阈值基于 2019 repo、2020 COVID、2023 SVB 三次危机校准，但**没有经过完整回测**（下一步工作）。用作决策**起点**，不是终点。
 """
     )
-
-# ═══════════════════════ Data load ════════════════════════════════
-tga = _load("tga").sort_values("poll_ts") if not _load("tga").empty else _load("tga")
-rrp = _load("rrp").sort_values("poll_ts") if not _load("rrp").empty else _load("rrp")
-srp = _load("srp").sort_values("poll_ts") if not _load("srp").empty else _load("srp")
-reserves = _load("reserves").sort_values("poll_ts") if not _load("reserves").empty else _load("reserves")
-nl = _load("net_liquidity").sort_values("as_of") if not _load("net_liquidity").empty else _load("net_liquidity")
-ms = _load("market_stress").sort_values("as_of_utc") if not _load("market_stress").empty else _load("market_stress")
-regime_df = _load("regime").sort_values("as_of") if not _load("regime").empty else _load("regime")
-adaptive_df = _load("adaptive_thresholds") if not _load("adaptive_thresholds").empty else _load("adaptive_thresholds")
-sofr_iorb = _load("sofr_iorb").sort_values("observation_date") if not _load("sofr_iorb").empty else _load("sofr_iorb")
-fed_reaction = _load("fed_reaction") if not _load("fed_reaction").empty else _load("fed_reaction")
 
 # ═══════════════════════ 🏷 Regime status strip ═══════════════════
 # Full-width regime indicator — appears above KPIs so users see
